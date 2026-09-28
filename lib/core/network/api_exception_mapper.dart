@@ -7,6 +7,14 @@ import '../errors/app_failure.dart';
 class ApiExceptionMapper {
   const ApiExceptionMapper();
 
+  static final RegExp _technicalMessagePattern = RegExp(
+    r'\b(?:DioException|SocketException|HandshakeException|Exception|StackTrace|Stack\s+trace|Traceback|Unhandled|Caused\s+by)\b|'
+    r'\b(?:dart:|package:|file:|https?://)|'
+    r'^\s*#\d+\b|\bat\s+\S+\(\)',
+    caseSensitive: false,
+    multiLine: true,
+  );
+
   AppFailure map(DioException exception) {
     final problem = _readProblem(exception.response?.data);
     final status = _readStatus(problem) ?? exception.response?.statusCode;
@@ -17,8 +25,8 @@ class ApiExceptionMapper {
       );
     }
     if (status != null && status >= 500) {
-      return ServiceFailure(
-        _message(problem, 'El servicio no está disponible. Intentá más tarde.'),
+      return const ServiceFailure(
+        'El servicio no está disponible. Intentá más tarde.',
       );
     }
 
@@ -66,8 +74,15 @@ class ApiExceptionMapper {
   String _message(Map<String, dynamic>? problem, String fallback) {
     for (final key in ['detail', 'title']) {
       final value = problem?[key];
-      if (value is String && value.trim().isNotEmpty) return value.trim();
+      if (value is String && _isSafeMessage(value)) return value.trim();
     }
     return fallback;
+  }
+
+  bool _isSafeMessage(String value) {
+    final message = value.trim();
+    return message.isNotEmpty &&
+        message.length <= 240 &&
+        !_technicalMessagePattern.hasMatch(message);
   }
 }

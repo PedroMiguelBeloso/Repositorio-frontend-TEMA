@@ -54,6 +54,51 @@ void main() {
     expect(failure.message, isNot(contains('technical socket')));
   });
 
+  test('does not expose technical ProblemDetail messages', () {
+    final failure = mapper.map(
+      _httpException(400, {
+        'status': 400,
+        'detail': 'DioException: request failed at ApiClient.get()',
+        'title': 'No se pudieron validar los datos.',
+      }),
+    );
+
+    expect(failure, isA<ValidationFailure>());
+    expect(failure.message, 'No se pudieron validar los datos.');
+
+    final unsafeFallback = mapper.map(
+      _httpException(400, {
+        'status': 400,
+        'detail': 'DioException: request failed',
+      }),
+    );
+    expect(unsafeFallback.message, 'Revisá los datos ingresados.');
+  });
+
+  test('uses a safe service fallback instead of a server technical detail', () {
+    final failure = mapper.map(
+      _httpException(503, {
+        'status': 503,
+        'detail': 'Internal Server Error: Stack trace at Server.handle()',
+      }),
+    );
+
+    expect(failure, isA<ServiceFailure>());
+    expect(
+      failure.message,
+      'El servicio no está disponible. Intentá más tarde.',
+    );
+  });
+
+  test('handles null, empty and non-map response bodies', () {
+    for (final body in <Object?>[null, '', '{}', '[]', 42]) {
+      final failure = mapper.map(_httpException(400, body));
+
+      expect(failure, isA<ValidationFailure>(), reason: '$body');
+      expect(failure.message, 'Revisá los datos ingresados.', reason: '$body');
+    }
+  });
+
   test('reads JSON-encoded problem details and uses detail before title', () {
     final failure = mapper.map(
       _httpException(401, '{"status":401,"title":"Título","detail":"Detalle"}'),
