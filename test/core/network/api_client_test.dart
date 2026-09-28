@@ -33,6 +33,30 @@ void main() {
       'Bearer unit-test-token',
     );
   });
+
+  test(
+    'does not add an Authorization header without a session token',
+    () async {
+      final adapter = _RecordingAdapter();
+      final container = ProviderContainer(
+        overrides: [
+          sessionProvider.overrideWith(() => _TestSessionNotifier(null)),
+          apiHttpClientAdapterProvider.overrideWith((ref) => adapter),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(apiClientProvider)
+          .get<Map<String, dynamic>>('/public-resource');
+
+      expect(adapter.requests, hasLength(1));
+      expect(
+        adapter.requests.single.headers.containsKey('Authorization'),
+        isFalse,
+      );
+    },
+  );
 }
 
 class _RecordingAdapter implements HttpClientAdapter {
@@ -61,7 +85,7 @@ class _RecordingAdapter implements HttpClientAdapter {
 class _TestSessionNotifier extends SessionNotifier {
   _TestSessionNotifier(this.session);
 
-  final Session session;
+  final Session? session;
 
   @override
   Session? build() => session;
