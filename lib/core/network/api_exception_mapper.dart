@@ -53,7 +53,12 @@ class ApiExceptionMapper {
   }
 
   Map<String, dynamic>? _readProblem(Object? data) {
-    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is Map) {
+      return {
+        for (final entry in data.entries)
+          if (entry.key is String) entry.key as String: entry.value,
+      };
+    }
     if (data is! String) return null;
 
     try {

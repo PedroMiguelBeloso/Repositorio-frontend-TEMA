@@ -111,6 +111,15 @@ void main() {
     }
   });
 
+  test('ignores non-string ProblemDetail keys safely', () {
+    final failure = mapper.map(
+      _httpException(400, {1: 'ignored', 'status': 400}),
+    );
+
+    expect(failure, isA<ValidationFailure>());
+    expect(failure.message, 'Revisá los datos ingresados.');
+  });
+
   test('reads JSON-encoded problem details and uses detail before title', () {
     final failure = mapper.map(
       _httpException(401, '{"status":401,"title":"Título","detail":"Detalle"}'),

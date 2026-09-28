@@ -179,10 +179,10 @@ Los nombres y paths están en `lib/app/router/route_names.dart`; el orden de
 Las sesiones de prueba se inyectan con overrides del provider de sesión. El
 cliente HTTP permite inyectar `apiHttpClientAdapterProvider`; las pruebas usan
 un adaptador falso que devuelve respuestas locales, sin llamar a un backend ni
-a la red. La última ejecución registrada el 2026-09-28 terminó con **22 tests
-pasados**. `flutter test --coverage` pasó los 16 tests de la ejecución anterior
-y generó `coverage/lcov.info`; no se volvió a ejecutar con los 22 tests ni se
-calculó un porcentaje de cobertura.
+a la red. La última ejecución registrada el 2026-09-28 terminó con **24 tests
+pasados**. `flutter test --coverage` pasó una versión anterior de la suite y
+generó `coverage/lcov.info`; no se volvió a ejecutar después de agregar los
+tests actuales ni se calculó un porcentaje de cobertura.
 
 ## Verificación
 
@@ -197,7 +197,7 @@ Evidencia recolectada el 2026-09-28 con Flutter 3.41.8/Dart 3.11.5:
 | Cliente común y Bearer condicional | CUMPLE | `apiClientProvider` y dos pruebas de adaptador falso en `test/core/network/api_client_test.dart`. |
 | Problem Detail crea un AppFailure sin extensiones opcionales y filtra mensajes técnicos | CUMPLE | Pruebas de mapper en `test/core/network/api_exception_mapper_test.dart`. |
 | Páginas temporales sin Dio ni reglas de negocio | CUMPLE | Búsqueda en `lib/app/` y `lib/features/`; no hay imports de Dio ni repositorios/reglas funcionales. |
-| `flutter analyze` y `flutter test` pasan | CUMPLE | Salidas reales abajo; 16 tests pasan. |
+| `flutter analyze` y `flutter test` pasan | CUMPLE | Salidas reales abajo; 24 tests pasan. |
 | README permite instalar, ejecutar y ubicar una funcionalidad | CUMPLE | Secciones Puesta en marcha, Estructura y Cómo continuar en este archivo. |
 | `flutter doctor` está limpio para todas las plataformas | NO CUMPLE | Doctor informa licencias Android pendientes y Visual Studio ausente. Chrome sí está disponible y `flutter build web` pasó. |
 
@@ -205,17 +205,17 @@ Salida de `flutter analyze`:
 
 ```text
 Analyzing proyecto_tema_frontend...
-No issues found! (ran in 1.7s)
+No issues found! (ran in 1.8s)
 ```
 
 Salida de `flutter test`:
 
 ```text
 00:02 +0: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: adds the current session token as a Bearer header
-[HTTP] GET /api/v1/private-resource status=200 duration=25ms
+[HTTP] GET /api/v1/private-resource status=200 duration=22ms
 00:02 +1: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: does not add an Authorization header without a session token
-[HTTP] GET /api/v1/public-resource status=200 duration=2ms
-00:04 +16: All tests passed!
+[HTTP] GET /api/v1/public-resource status=200 duration=0ms
+00:05 +24: All tests passed!
 ```
 
 `flutter doctor` no impide los tests ni el build web. La ejecución interactiva
@@ -267,8 +267,8 @@ Observaciones verificables:
 	instalado; solo afectan esas plataformas, no el build web verificado.
 - La ejecución interactiva con `flutter run -d chrome` y las URLs de ejemplo
 	para staging/producción están **No verificado**.
-- Los tests verifican bodies nulos, vacíos y no mapa. Un mapa con claves de
-	tipo no string queda **No verificado** por tests.
+- Los tests verifican bodies nulos, vacíos, no mapa y mapas con claves no
+	string.
 
 ## Decisiones tomadas
 
