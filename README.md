@@ -212,10 +212,10 @@ Salida de `flutter test`:
 
 ```text
 00:02 +0: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: adds the current session token as a Bearer header
-[HTTP] GET /api/v1/private-resource status=200 duration=22ms
+[HTTP] GET /api/v1/private-resource status=200 duration=24ms
 00:02 +1: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: does not add an Authorization header without a session token
-[HTTP] GET /api/v1/public-resource status=200 duration=0ms
-00:05 +24: All tests passed!
+[HTTP] GET /api/v1/public-resource status=200 duration=2ms
+00:04 +24: All tests passed!
 ```
 
 `flutter doctor` no impide los tests ni el build web. La ejecución interactiva
