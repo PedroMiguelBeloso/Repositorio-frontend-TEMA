@@ -90,6 +90,18 @@ void main() {
     );
   });
 
+  test('uses a safe ProblemDetail detail for a service failure', () {
+    final failure = mapper.map(
+      _httpException(503, {
+        'status': 503,
+        'detail': 'El servicio está en mantenimiento.',
+      }),
+    );
+
+    expect(failure, isA<ServiceFailure>());
+    expect(failure.message, 'El servicio está en mantenimiento.');
+  });
+
   test('handles null, empty and non-map response bodies', () {
     for (final body in <Object?>[null, '', '{}', '[]', 42]) {
       final failure = mapper.map(_httpException(400, body));

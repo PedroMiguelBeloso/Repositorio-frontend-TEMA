@@ -25,8 +25,8 @@ class ApiExceptionMapper {
       );
     }
     if (status != null && status >= 500) {
-      return const ServiceFailure(
-        'El servicio no está disponible. Intentá más tarde.',
+      return ServiceFailure(
+        _message(problem, 'El servicio no está disponible. Intentá más tarde.'),
       );
     }
 
