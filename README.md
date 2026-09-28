@@ -171,14 +171,18 @@ Los nombres y paths están en `lib/app/router/route_names.dart`; el orden de
 	ausencia del header sin token mediante un `HttpClientAdapter` falso.
 - `test/core/network/api_exception_mapper_test.dart`: verifica 401, 403,
 	400/422, 409, 503, fallo de red y lectura de Problem Detail con campos
-	opcionales ausentes.
+	opcionales ausentes; también cuerpos nulos, vacíos/no mapa y rechazo de
+	detalles técnicos.
+- `test/core/widgets/async_content_test.dart`: verifica carga, error con
+	callback de reintento y estado vacío.
 
 Las sesiones de prueba se inyectan con overrides del provider de sesión. El
 cliente HTTP permite inyectar `apiHttpClientAdapterProvider`; las pruebas usan
 un adaptador falso que devuelve respuestas locales, sin llamar a un backend ni
-a la red. La última ejecución registrada el 2026-09-28 terminó con **16 tests
-pasados**. `flutter test --coverage` también pasó los 16 y generó
-`coverage/lcov.info`; no se calculó ni documentó un porcentaje de cobertura.
+a la red. La última ejecución registrada el 2026-09-28 terminó con **22 tests
+pasados**. `flutter test --coverage` pasó los 16 tests de la ejecución anterior
+y generó `coverage/lcov.info`; no se volvió a ejecutar con los 22 tests ni se
+calculó un porcentaje de cobertura.
 
 ## Verificación
 
@@ -191,7 +195,7 @@ Evidencia recolectada el 2026-09-28 con Flutter 3.41.8/Dart 3.11.5:
 | Router evaluable con Administrador, Lector y sin sesión | CUMPLE | Tests con overrides en `test/widget_test.dart`. |
 | URL de API cambiable sin editar código | CUMPLE | `String.fromEnvironment` y comandos documentados; valor por defecto en `lib/core/config/environment.dart`. |
 | Cliente común y Bearer condicional | CUMPLE | `apiClientProvider` y dos pruebas de adaptador falso en `test/core/network/api_client_test.dart`. |
-| Problem Detail crea un AppFailure sin extensiones opcionales | CUMPLE | Pruebas de mapper en `test/core/network/api_exception_mapper_test.dart`. |
+| Problem Detail crea un AppFailure sin extensiones opcionales y filtra mensajes técnicos | CUMPLE | Pruebas de mapper en `test/core/network/api_exception_mapper_test.dart`. |
 | Páginas temporales sin Dio ni reglas de negocio | CUMPLE | Búsqueda en `lib/app/` y `lib/features/`; no hay imports de Dio ni repositorios/reglas funcionales. |
 | `flutter analyze` y `flutter test` pasan | CUMPLE | Salidas reales abajo; 16 tests pasan. |
 | README permite instalar, ejecutar y ubicar una funcionalidad | CUMPLE | Secciones Puesta en marcha, Estructura y Cómo continuar en este archivo. |
@@ -263,16 +267,15 @@ Observaciones verificables:
 	instalado; solo afectan esas plataformas, no el build web verificado.
 - La ejecución interactiva con `flutter run -d chrome` y las URLs de ejemplo
 	para staging/producción están **No verificado**.
-- Los tests verifican Problem Detail con extensiones opcionales ausentes, pero
-	no cubren explícitamente bodies nulos, vacíos ni mapas con claves no string:
-	esos casos quedan **No verificado** por tests.
+- Los tests verifican bodies nulos, vacíos y no mapa. Un mapa con claves de
+	tipo no string queda **No verificado** por tests.
 
 ## Decisiones tomadas
 
 - Se usa `ShellRoute` para compartir `AppScaffold` entre rutas autenticadas;
 	`/login` queda fuera del shell.
-- `AppFailure` es una jerarquía sellada para distinguir categorías de error sin
-	exponer directamente excepciones técnicas.
+- `AppFailure` es una jerarquía sellada para distinguir categorías de error;
+	el mapper descarta detalles técnicos identificables antes de mostrarlos.
 - La URL tiene un único valor predeterminado en `Environment`; se puede
 	reemplazar con `--dart-define`.
 - El adaptador HTTP se inyecta por provider y se reemplaza en tests. No se
