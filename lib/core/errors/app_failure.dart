@@ -1,33 +1,37 @@
 sealed class AppFailure implements Exception {
-  const AppFailure(this.message);
+  const AppFailure({required this.message, this.statusCode});
 
   final String message;
+  final int? statusCode;
+
+  @override
+  String toString() => 'AppFailure($statusCode): $message';
 }
 
 final class NetworkFailure extends AppFailure {
-  const NetworkFailure(super.message);
+  const NetworkFailure(String message) : super(message: message);
 }
 
 final class UnauthenticatedFailure extends AppFailure {
-  const UnauthenticatedFailure(super.message);
+  const UnauthenticatedFailure(String message) : super(message: message);
 }
 
 final class PermissionFailure extends AppFailure {
-  const PermissionFailure(super.message);
+  const PermissionFailure(String message) : super(message: message);
 }
 
 final class ValidationFailure extends AppFailure {
-  const ValidationFailure(super.message);
+  const ValidationFailure(String message) : super(message: message);
 }
 
 final class ConflictFailure extends AppFailure {
-  const ConflictFailure(super.message);
+  const ConflictFailure(String message) : super(message: message);
 }
 
 final class ServiceFailure extends AppFailure {
-  const ServiceFailure(super.message);
+  const ServiceFailure(String message) : super(message: message);
 }
 
 final class UnexpectedFailure extends AppFailure {
-  const UnexpectedFailure(super.message);
+  const UnexpectedFailure(String message) : super(message: message);
 }

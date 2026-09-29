@@ -6,6 +6,10 @@ import '../../core/auth/session.dart';
 import '../../core/auth/session_provider.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/placeholder_page.dart';
+import '../../features/auth/view/change_password_page.dart';
+import '../../features/auth/view/login_page.dart';
+import '../../features/users/view/create_reader_page.dart';
+import '../../features/users/view/users_page.dart';
 import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -20,11 +24,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final session = ref.read(sessionProvider);
       final isLoginRoute = state.matchedLocation == RouteNames.loginPath;
 
-      if (session == null) {
+      if (session?.isValid != true) {
         return isLoginRoute ? null : RouteNames.loginPath;
       }
       if (isLoginRoute) return RouteNames.homePath;
-      if (session.role == UserRole.reader &&
+      if (session!.isReader &&
           RouteNames.isAdminOnly(state.matchedLocation)) {
         return RouteNames.homePath;
       }
@@ -51,8 +55,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         name: RouteNames.loginName,
         path: RouteNames.loginPath,
-        builder: (context, state) =>
-            const Scaffold(body: PlaceholderPage(title: 'Iniciar sesión')),
+        builder: (context, state) => const LoginPage(),
       ),
       ShellRoute(
         builder: (context, state, child) => AppScaffold(child: child),
@@ -115,6 +118,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: RouteNames.integrationsPath,
             builder: (context, state) =>
                 const PlaceholderPage(title: 'Integraciones'),
+          ),
+          GoRoute(
+            name: RouteNames.usersName,
+            path: RouteNames.usersPath,
+            builder: (context, state) => const UsersPage(),
+            routes: [
+              GoRoute(
+                name: RouteNames.createReaderName,
+                path: 'new',
+                builder: (context, state) => const CreateReaderPage(),
+              ),
+            ],
+          ),
+          GoRoute(
+            name: RouteNames.changePasswordName,
+            path: RouteNames.changePasswordPath,
+            builder: (context, state) => const ChangePasswordPage(),
           ),
         ],
       ),

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/route_names.dart';
-import '../auth/session.dart';
 import '../auth/session_provider.dart';
 
 class AppScaffold extends ConsumerWidget {
@@ -13,8 +12,7 @@ class AppScaffold extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isAdministrator =
-        ref.watch(sessionProvider)?.role == UserRole.administrator;
+    final isAdministrator = ref.watch(sessionProvider)?.isAdmin == true;
     final destinations = _destinations(isAdministrator);
     final selectedIndex = _selectedIndex(context, isAdministrator);
 

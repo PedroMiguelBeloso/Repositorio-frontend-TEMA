@@ -58,7 +58,6 @@ void main() {
 
     expect(router.routeInformationProvider.value.uri.path, RouteNames.loginPath);
     expect(find.text('Iniciar sesión'), findsOneWidget);
-    expect(find.text('Funcionalidad en desarrollo'), findsOneWidget);
 
     router.go(RouteNames.integrationsPath);
     await tester.pumpAndSettle();

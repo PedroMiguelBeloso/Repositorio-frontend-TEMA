@@ -27,9 +27,18 @@ abstract final class RouteNames {
   static const integrationsName = 'integrations';
   static const integrationsPath = '/settings/integrations';
 
+  static const usersName = 'users';
+  static const usersPath = '/users';
+  static const createReaderName = 'create-reader';
+  static const createReaderPath = '/users/new';
+  static const changePasswordName = 'change-password';
+  static const changePasswordPath = '/settings/password';
+
   static const adminOnlyPaths = <String>{
     integrationsPath,
     newVerificationPath,
+    usersPath,
+    createReaderPath,
   };
 
   static bool isAdminOnly(String location) => adminOnlyPaths.contains(location);

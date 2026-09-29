@@ -1,20 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../auth/session_provider.dart';
 import '../config/environment.dart';
+import 'auth_interceptor.dart';
 import 'api_client.dart';
 
 final apiHttpClientAdapterProvider = Provider<HttpClientAdapter?>(
   (ref) => null,
 );
 
-final apiClientProvider = Provider<Dio>((ref) {
-  final client = createApiClient(
+final apiClientProvider = Provider<ApiClient>((ref) {
+  final dio = createApiClient(
     baseUrl: Environment.apiBaseUrl,
-    readToken: () => ref.read(sessionProvider)?.token,
+    authInterceptor: AuthInterceptor(ref),
     httpClientAdapter: ref.watch(apiHttpClientAdapterProvider),
   );
-  ref.onDispose(client.close);
-  return client;
+  ref.onDispose(dio.close);
+  return ApiClient(dio);
 });

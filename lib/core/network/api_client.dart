@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 Dio createApiClient({
   required String baseUrl,
-  required String? Function() readToken,
+  required Interceptor authInterceptor,
   HttpClientAdapter? httpClientAdapter,
 }) {
   final dio = Dio(
@@ -15,24 +15,9 @@ Dio createApiClient({
   );
   if (httpClientAdapter != null) dio.httpClientAdapter = httpClientAdapter;
 
-  dio.interceptors.add(_AuthorizationInterceptor(readToken));
+  dio.interceptors.add(authInterceptor);
   if (kDebugMode) dio.interceptors.add(_SafeRequestLogInterceptor());
   return dio;
-}
-
-class _AuthorizationInterceptor extends Interceptor {
-  _AuthorizationInterceptor(this.readToken);
-
-  final String? Function() readToken;
-
-  @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final token = readToken();
-    if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
-    }
-    handler.next(options);
-  }
 }
 
 class _SafeRequestLogInterceptor extends Interceptor {
@@ -69,4 +54,22 @@ class _SafeRequestLogInterceptor extends Interceptor {
       'status=$status duration=${duration}ms',
     );
   }
+}
+
+class ApiClient {
+  ApiClient(this._dio);
+
+  final Dio _dio;
+
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) => _dio.get<T>(path, queryParameters: queryParameters, options: options);
+
+  Future<Response<T>> post<T>(String path, {Object? data, Options? options}) =>
+      _dio.post<T>(path, data: data, options: options);
+
+  Future<Response<T>> put<T>(String path, {Object? data, Options? options}) =>
+      _dio.put<T>(path, data: data, options: options);
 }
