@@ -54,14 +54,99 @@ void main() {
 
   testWidgets('no session redirects to login', (tester) async {
     final container = await _pumpApp(tester);
+    final router = container.read(appRouterProvider);
 
+    expect(router.routeInformationProvider.value.uri.path, RouteNames.loginPath);
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Funcionalidad en desarrollo'), findsOneWidget);
 
-    container.read(appRouterProvider).go(RouteNames.integrationsPath);
+    router.go(RouteNames.integrationsPath);
     await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, RouteNames.loginPath);
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Integraciones'), findsNothing);
+
+    router.go(RouteNames.newVerificationPath);
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, RouteNames.loginPath);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Nueva verificación'), findsNothing);
+  });
+
+  testWidgets('reader is redirected from new verification', (tester) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.reader),
+    );
+    final router = container.read(appRouterProvider);
+
+    router.go(RouteNames.newVerificationPath);
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, RouteNames.homePath);
+    expect(find.text('Nueva verificación'), findsNothing);
+    expect(find.text('Inicio'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('administrator can access new verification', (tester) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.administrator),
+    );
+    final router = container.read(appRouterProvider);
+
+    router.go(RouteNames.newVerificationPath);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RouteNames.newVerificationPath,
+    );
+    expect(find.text('Nueva verificación'), findsOneWidget);
+  });
+
+  testWidgets('reader can access verification details and results', (
+    tester,
+  ) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.reader),
+    );
+    final router = container.read(appRouterProvider);
+    const routes = <(String, String)>[
+      ('/verifications/run-42', 'Detalle de verificación'),
+      ('/verifications/run-42/results', 'Resultados de verificación'),
+    ];
+
+    for (final (path, title) in routes) {
+      router.go(path);
+      await tester.pumpAndSettle();
+
+      expect(router.routeInformationProvider.value.uri.path, path);
+      expect(find.text(title), findsOneWidget, reason: path);
+    }
+  });
+
+  testWidgets('reader is redirected from every administrator-only route', (
+    tester,
+  ) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.reader),
+    );
+    final router = container.read(appRouterProvider);
+
+    for (final path in RouteNames.adminOnlyPaths) {
+      router.go(path);
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        RouteNames.homePath,
+        reason: path,
+      );
+      expect(find.text('Inicio'), findsAtLeastNWidgets(1), reason: path);
+    }
   });
 
   testWidgets('session changes refresh the router', (tester) async {
@@ -139,18 +224,16 @@ Future<ProviderContainer> _pumpApp(
   WidgetTester tester, {
   Session? session,
 }) async {
-  final container = ProviderContainer(
-    overrides: [
-      sessionProvider.overrideWith(() => _TestSessionNotifier(session)),
-    ],
-  );
-  addTearDown(container.dispose);
-
   await tester.pumpWidget(
-    UncontrolledProviderScope(container: container, child: const App()),
+    ProviderScope(
+      overrides: [
+        sessionProvider.overrideWith(() => _TestSessionNotifier(session)),
+      ],
+      child: const App(),
+    ),
   );
   await tester.pumpAndSettle();
-  return container;
+  return ProviderScope.containerOf(tester.element(find.byType(App)));
 }
 
 class _TestSessionNotifier extends SessionNotifier {
