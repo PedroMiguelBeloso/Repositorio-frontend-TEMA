@@ -25,7 +25,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       if (isLoginRoute) return RouteNames.homePath;
       if (session.role == UserRole.reader &&
-          state.matchedLocation == RouteNames.integrationsPath) {
+          RouteNames.isAdminOnly(state.matchedLocation)) {
         return RouteNames.homePath;
       }
       return null;

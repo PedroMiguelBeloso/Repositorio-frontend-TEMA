@@ -27,6 +27,13 @@ abstract final class RouteNames {
   static const integrationsName = 'integrations';
   static const integrationsPath = '/settings/integrations';
 
+  static const adminOnlyPaths = <String>{
+    integrationsPath,
+    newVerificationPath,
+  };
+
+  static bool isAdminOnly(String location) => adminOnlyPaths.contains(location);
+
   static String processDetails(String id) => '/processes/$id';
   static String processHistory(String id) => '/processes/$id/history';
   static String verificationDetails(String runId) => '/verifications/$runId';
