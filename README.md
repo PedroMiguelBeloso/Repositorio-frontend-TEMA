@@ -8,12 +8,9 @@ se desarrollarán en tareas posteriores.
 
 ## Requisitos
 
-- SDK verificado: Flutter 3.41.8 stable y Dart 3.11.5.
+- SDK verificado: Flutter 3.47.5 stable y Dart 3.13.4.
 - Para ejecutar en web: Chrome.
-- `flutter doctor` debe estar sin errores para la plataforma elegida. En la
-	verificación documentada, Android tenía licencias pendientes y faltaba
-	Visual Studio para compilar Windows; Chrome y los dispositivos conectados
-	estaban disponibles.
+- `flutter doctor` debe estar sin errores para la plataforma elegida.
 - Trabajá desde la carpeta del proyecto, no desde ubicaciones protegidas del
 	sistema como `C:\Windows\System32`.
 
@@ -28,16 +25,10 @@ Ejecutá estos comandos desde la raíz del repositorio:
 | `flutter test` | Ejecuta todos los tests automatizados. |
 | `flutter test --coverage` | Ejecuta los tests y genera `coverage/lcov.info`. |
 | `flutter test test/core/network/api_client_test.dart` | Ejecuta un archivo específico de tests. |
-| `flutter test --name="Bearer header"` | Filtra tests por expresión regular en el nombre (`--name=<regexp>` en Flutter 3.41.8). |
+| `flutter test --name="Bearer header"` | Filtra tests por expresión regular en el nombre (`--name=<regexp>` en Flutter 3.47.5). |
 | `flutter run -d chrome` | Ejecuta la app en Chrome. |
 | `flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8080/api/v1` | Ejecuta en Chrome con una URL de API explícita. |
 | `flutter build web` | Compila la app web en `build/web`. |
-
-Verificación recolectada el 2026-09-28: `flutter pub get`, `flutter analyze`,
-`flutter test`, `flutter test --coverage` y `flutter build web` finalizaron
-correctamente. La suite ejecutó 16 tests. La compilación web está verificada;
-una sesión interactiva iniciada mediante `flutter run` queda **No verificado**
-en esta pasada.
 
 ## Configuración de ambientes
 
@@ -57,8 +48,8 @@ flutter run -d chrome --dart-define=API_BASE_URL=https://api-staging.example.com
 flutter run -d chrome --dart-define=API_BASE_URL=https://api.example.com/api/v1
 ```
 
-Las URLs de staging y producción anteriores son ejemplos y **No verificado**
-que existan o estén disponibles. No incluyas credenciales ni tokens en
+Las URLs de staging y producción anteriores son ejemplos; no se verificó que
+existan o estén disponibles. No incluyas credenciales ni tokens en
 `--dart-define`. Al probar un backend desde Flutter Web, el backend debe
 permitir el origen de la app mediante CORS.
 
@@ -122,7 +113,9 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 	desarrollo». La ruta no encontrada muestra un error y un botón para volver al
 	inicio. `AppScaffold` usa `NavigationBar` en pantallas angostas y
 	`NavigationRail` en anchas. Sin sesión se redirige a `/login`; Lector no puede
-	acceder a Integraciones. El router escucha cambios del provider de sesión.
+	acceder a Integraciones ni crear verificaciones. Las rutas de Administrador
+	están centralizadas en `RouteNames.adminOnlyPaths`. El router escucha cambios
+	del provider de sesión.
 - **Sesión:** `Session` representa rol Lector o Administrador y token opcional;
 	`sessionProvider` inicia con `null` (sin sesión). Las sesiones simuladas se
 	inyectan en los tests mediante overrides.
@@ -141,8 +134,8 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 ## Rutas
 
 Todas las rutas salvo `/login` están bajo el shell autenticado. Sin sesión, una
-ruta protegida redirige a `/login`; un Lector que solicita Integraciones vuelve
-a `/`.
+ruta protegida redirige a `/login`; un Lector que solicita una ruta exclusiva
+de Administrador vuelve a `/`.
 
 | Ruta | Nombre | Sin sesión | Lector | Administrador | Estado |
 |---|---|---|---|---|---|
@@ -153,14 +146,17 @@ a `/`.
 | `/processes/:id/history` | `process-history` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/services` | `services` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications` | `verifications` | Redirige a `/login` | Permitida | Permitida | Temporal |
-| `/verifications/new` | `new-verification` | Redirige a `/login` | Permitida | Permitida | Temporal |
+| `/verifications/new` | `new-verification` | Redirige a `/login` | Redirige a `/` | Permitida | Temporal |
 | `/verifications/:runId` | `verification-details` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications/:runId/results` | `verification-results` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/settings/integrations` | `integrations` | Redirige a `/login` | Redirige a `/` | Permitida | Temporal |
 
-Los nombres y paths están en `lib/app/router/route_names.dart`; el orden de
-`/verifications/new` antes de `:runId` se verificó en
-`lib/app/router/app_router.dart`.
+Los nombres y paths están en `lib/app/router/route_names.dart`. Las rutas
+exclusivas de Administrador están en `RouteNames.adminOnlyPaths`; para agregar
+otra, incorporá su path a ese set. El redirect consulta el helper
+`RouteNames.isAdminOnly`. `/verifications/new` está declarada antes de
+`/verifications/:runId`, por lo que el path estático no se captura como un
+detalle.
 
 ## Testing
 
@@ -179,48 +175,51 @@ Los nombres y paths están en `lib/app/router/route_names.dart`; el orden de
 Las sesiones de prueba se inyectan con overrides del provider de sesión. El
 cliente HTTP permite inyectar `apiHttpClientAdapterProvider`; las pruebas usan
 un adaptador falso que devuelve respuestas locales, sin llamar a un backend ni
-a la red. La última ejecución registrada el 2026-09-28 terminó con **24 tests
-pasados**. `flutter test --coverage` pasó una versión anterior de la suite y
-generó `coverage/lcov.info`; no se volvió a ejecutar después de agregar los
-tests actuales ni se calculó un porcentaje de cobertura.
+a la red.
 
 ## Verificación
 
-Evidencia recolectada el 2026-09-28 con Flutter 3.41.8/Dart 3.11.5:
+Evidencia final recolectada el 2026-09-29 con Flutter 3.47.5 stable y Dart
+3.13.4.
 
-| Criterio | Estado | Evidencia |
-|---|---|---|
-| La app inicia y muestra navegación base | CUMPLE | Tests de `NavigationBar`/`NavigationRail` pasan; `flutter build web` finalizó. `flutter run` interactivo: **No verificado** en esta pasada. |
-| Rutas configuradas resuelven y desconocida muestra error | CUMPLE | Test de rutas conocidas y desconocida en `test/widget_test.dart`; build web correcto. |
-| Router evaluable con Administrador, Lector y sin sesión | CUMPLE | Tests con overrides en `test/widget_test.dart`. |
-| URL de API cambiable sin editar código | CUMPLE | `String.fromEnvironment` y comandos documentados; valor por defecto en `lib/core/config/environment.dart`. |
-| Cliente común y Bearer condicional | CUMPLE | `apiClientProvider` y dos pruebas de adaptador falso en `test/core/network/api_client_test.dart`. |
-| Problem Detail crea un AppFailure sin extensiones opcionales y filtra mensajes técnicos | CUMPLE | Pruebas de mapper en `test/core/network/api_exception_mapper_test.dart`. |
-| Páginas temporales sin Dio ni reglas de negocio | CUMPLE | Búsqueda en `lib/app/` y `lib/features/`; no hay imports de Dio ni repositorios/reglas funcionales. |
-| `flutter analyze` y `flutter test` pasan | CUMPLE | Salidas reales abajo; 24 tests pasan. |
-| README permite instalar, ejecutar y ubicar una funcionalidad | CUMPLE | Secciones Puesta en marcha, Estructura y Cómo continuar en este archivo. |
-| `flutter doctor` está limpio para todas las plataformas | NO CUMPLE | Doctor informa licencias Android pendientes y Visual Studio ausente. Chrome sí está disponible y `flutter build web` pasó. |
+`flutter pub get`:
 
-Salida de `flutter analyze`:
+```text
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+```
+
+`flutter analyze`:
 
 ```text
 Analyzing proyecto_tema_frontend...
-No issues found! (ran in 1.8s)
+No issues found! (ran in 1.4s)
 ```
 
-Salida de `flutter test`:
+`flutter test`:
 
 ```text
 00:02 +0: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: adds the current session token as a Bearer header
-[HTTP] GET /api/v1/private-resource status=200 duration=24ms
+[HTTP] GET /api/v1/private-resource status=200 duration=26ms
 00:02 +1: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: does not add an Authorization header without a session token
 [HTTP] GET /api/v1/public-resource status=200 duration=2ms
-00:04 +24: All tests passed!
+00:05 +28: All tests passed!
 ```
 
-`flutter doctor` no impide los tests ni el build web. La ejecución interactiva
-con `flutter run -d chrome` y la disponibilidad real de las URLs de staging y
-producción se dejan **No verificado**.
+`flutter run -d chrome --web-hostname 127.0.0.1 --web-port 8765`:
+
+```text
+Launching lib\main.dart on Chrome in debug mode...
+Waiting for connection from debug service on Chrome...             25,6s
+Flutter run key commands.
+Starting application from main method in:
+org-dartlang-app:///web_entrypoint.dart.
+Application finished.
+```
+
+Chrome mostró `http://127.0.0.1:8765/#/login` sin errores de consola. La
+sesión interactiva se cerró con `q`; la ruta inicial sin sesión también está
+afirmada por los tests de navegación.
 
 ## Cómo continuar
 
@@ -263,10 +262,6 @@ final de pantallas.
 
 Observaciones verificables:
 
-- `flutter doctor` informa licencias Android pendientes y Visual Studio no
-	instalado; solo afectan esas plataformas, no el build web verificado.
-- La ejecución interactiva con `flutter run -d chrome` y las URLs de ejemplo
-	para staging/producción están **No verificado**.
 - Los tests verifican bodies nulos, vacíos, no mapa y mapas con claves no
 	string.
 
@@ -274,6 +269,9 @@ Observaciones verificables:
 
 - Se usa `ShellRoute` para compartir `AppScaffold` entre rutas autenticadas;
 	`/login` queda fuera del shell.
+- Las rutas exclusivas de Administrador se declaran en
+	`RouteNames.adminOnlyPaths`; el redirect las comprueba con
+	`RouteNames.isAdminOnly` y envía al Lector a `/`.
 - `AppFailure` es una jerarquía sellada para distinguir categorías de error;
 	el mapper descarta detalles técnicos identificables antes de mostrarlos.
 - La URL tiene un único valor predeterminado en `Environment`; se puede
