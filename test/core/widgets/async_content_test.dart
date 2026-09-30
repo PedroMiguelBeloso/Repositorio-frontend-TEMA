@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proyecto_tema_frontend/core/errors/app_failure.dart';
 import 'package:proyecto_tema_frontend/core/widgets/async_content.dart';
@@ -6,9 +7,13 @@ import 'package:proyecto_tema_frontend/core/widgets/async_content.dart';
 void main() {
   testWidgets('shows a loading indicator while loading', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
-          body: AsyncContent(isLoading: true, child: Text('Contenido')),
+          body: AsyncContent<List<String>>(
+            value: const AsyncLoading<List<String>>(),
+            errorMessage: 'No se pudieron cargar los datos.',
+            builder: (_) => const Text('Contenido'),
+          ),
         ),
       ),
     );
@@ -22,10 +27,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: AsyncContent(
-            failure: const NetworkFailure('No hay conexión.'),
+          body: AsyncContent<List<String>>(
+            value: AsyncError<List<String>>(
+              const NetworkFailure('No hay conexión.'),
+              StackTrace.empty,
+            ),
+            errorMessage: 'No se pudieron cargar los datos.',
             onRetry: () => retryCount++,
-            child: const Text('Contenido'),
+            builder: (_) => const Text('Contenido'),
           ),
         ),
       ),
@@ -38,9 +47,14 @@ void main() {
 
   testWidgets('shows the empty state when there are no items', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
-          body: AsyncContent(isEmpty: true, child: Text('Contenido')),
+          body: AsyncContent<List<String>>(
+            value: const AsyncData<List<String>>([]),
+            errorMessage: 'No se pudieron cargar los datos.',
+            isEmpty: (items) => items.isEmpty,
+            builder: (_) => const Text('Contenido'),
+          ),
         ),
       ),
     );

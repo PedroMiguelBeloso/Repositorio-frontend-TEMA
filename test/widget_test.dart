@@ -56,18 +56,27 @@ void main() {
     final container = await _pumpApp(tester);
     final router = container.read(appRouterProvider);
 
-    expect(router.routeInformationProvider.value.uri.path, RouteNames.loginPath);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RouteNames.loginPath,
+    );
     expect(find.text('Iniciar sesión'), findsOneWidget);
 
     router.go(RouteNames.integrationsPath);
     await tester.pumpAndSettle();
-    expect(router.routeInformationProvider.value.uri.path, RouteNames.loginPath);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RouteNames.loginPath,
+    );
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Integraciones'), findsNothing);
 
     router.go(RouteNames.newVerificationPath);
     await tester.pumpAndSettle();
-    expect(router.routeInformationProvider.value.uri.path, RouteNames.loginPath);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RouteNames.loginPath,
+    );
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Nueva verificación'), findsNothing);
   });
@@ -160,6 +169,29 @@ void main() {
     expect(find.text('Inicio'), findsAtLeastNWidgets(1));
   });
 
+  testWidgets('account menu opens password settings and logs out', (
+    tester,
+  ) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.reader),
+    );
+
+    await tester.tap(find.byTooltip('Cuenta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cambiar contraseña'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cambiar mi contraseña'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Cuenta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cerrar sesión'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(sessionProvider), isNull);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+  });
+
   testWidgets('administrator can see and access integrations', (tester) async {
     final container = await _pumpApp(
       tester,
@@ -202,6 +234,24 @@ void main() {
     expect(find.byType(NavigationRail), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'narrow administrator layout fits account menu and destinations',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await _pumpApp(
+        tester,
+        session: const Session(role: UserRole.administrator),
+      );
+
+      expect(find.byTooltip('Cuenta'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('wide layout uses navigation rail without overflow', (
     tester,

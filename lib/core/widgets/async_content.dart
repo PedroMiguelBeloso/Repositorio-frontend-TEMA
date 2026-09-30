@@ -1,49 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../errors/app_failure.dart';
+import 'app_error_view.dart';
+import 'empty_state.dart';
 
-class AsyncContent extends StatelessWidget {
+class AsyncContent<T> extends StatelessWidget {
   const AsyncContent({
     super.key,
-    required this.child,
-    this.isLoading = false,
-    this.failure,
+    required this.value,
+    required this.builder,
+    required this.errorMessage,
     this.onRetry,
-    this.isEmpty = false,
+    this.isEmpty,
+    this.emptyMessage = 'No hay datos disponibles.',
   });
 
-  final Widget child;
-  final bool isLoading;
-  final AppFailure? failure;
+  final AsyncValue<T> value;
+  final Widget Function(T data) builder;
+  final String errorMessage;
   final VoidCallback? onRetry;
-  final bool isEmpty;
+  final bool Function(T data)? isEmpty;
+  final String emptyMessage;
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (failure case final failure?) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(failure.message, textAlign: TextAlign.center),
-            if (onRetry case final onRetry?) ...[
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reintentar'),
-              ),
-            ],
-          ],
-        ),
-      );
-    }
-    if (isEmpty) {
-      return const Center(child: Text('No hay datos disponibles.'));
-    }
-    return child;
+    return value.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => AppErrorView(
+        failure: safeAppFailure(error, fallbackMessage: errorMessage),
+        onRetry: onRetry,
+      ),
+      data: (data) => isEmpty?.call(data) == true
+          ? EmptyState(message: emptyMessage)
+          : builder(data),
+    );
   }
 }

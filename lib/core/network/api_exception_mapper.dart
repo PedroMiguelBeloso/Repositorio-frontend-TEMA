@@ -52,6 +52,12 @@ class ApiExceptionMapper {
     };
   }
 
+  AppFailure mapError(Object error, {required String fallbackMessage}) {
+    if (error is DioException) return map(error);
+    if (error is AppFailure) return error;
+    return UnexpectedFailure(fallbackMessage);
+  }
+
   Map<String, dynamic>? _readProblem(Object? data) {
     if (data is Map) {
       return {

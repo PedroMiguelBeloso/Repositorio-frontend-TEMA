@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../app/theme/app_theme.dart';
+import '../../../core/widgets/async_content.dart';
+import '../../../core/widgets/status_chip.dart';
+import '../../auth/model/auth_models.dart';
 import '../viewmodel/users_list_view_model.dart';
 
 class UsersPage extends ConsumerWidget {
@@ -14,45 +19,36 @@ class UsersPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Gestión de Usuarios'),
         actions: [
-          ElevatedButton.icon(
+          FilledButton.icon(
             icon: const Icon(Icons.add),
             label: const Text('Crear Lector'),
             onPressed: () => context.push('/users/new'),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.lg),
         ],
       ),
-      body: usersState.when(
-        data: (users) {
-          if (users.isEmpty) return const Center(child: Text('No hay usuarios.'));
-          return RefreshIndicator(
-            onRefresh: () => ref.read(usersListViewModelProvider.notifier).refresh(),
-            child: ListView.builder(
-              itemCount: users.length,
-              itemBuilder: (context, index) {
-                final u = users[index];
-                return ListTile(
-                  title: Text(u.displayName),
-                  subtitle: Text('${u.email} • Rol: ${u.role.value}'),
-                  trailing: Text(u.active ? 'Activo' : 'Inactivo', 
-                    style: TextStyle(color: u.active ? Colors.green : Colors.red),
-                  ),
-                );
-              },
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Error: $err'),
-              TextButton(
-                onPressed: () => ref.read(usersListViewModelProvider.notifier).refresh(),
-                child: const Text('Reintentar'),
-              )
-            ],
+      body: AsyncContent<List<User>>(
+        value: usersState,
+        errorMessage: 'No se pudieron cargar los usuarios.',
+        emptyMessage: 'No hay usuarios.',
+        isEmpty: (users) => users.isEmpty,
+        onRetry: () => ref.read(usersListViewModelProvider.notifier).refresh(),
+        builder: (users) => RefreshIndicator(
+          onRefresh: () =>
+              ref.read(usersListViewModelProvider.notifier).refresh(),
+          child: ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(
+                title: Text(user.displayName),
+                subtitle: Text('${user.email} • Rol: ${user.role.value}'),
+                trailing: StatusChip(
+                  label: user.active ? 'Activo' : 'Inactivo',
+                  tone: user.active ? StatusTone.success : StatusTone.danger,
+                ),
+              );
+            },
           ),
         ),
       ),

@@ -35,3 +35,7 @@ final class ServiceFailure extends AppFailure {
 final class UnexpectedFailure extends AppFailure {
   const UnexpectedFailure(String message) : super(message: message);
 }
+
+AppFailure safeAppFailure(Object? error, {required String fallbackMessage}) {
+  return error is AppFailure ? error : UnexpectedFailure(fallbackMessage);
+}
