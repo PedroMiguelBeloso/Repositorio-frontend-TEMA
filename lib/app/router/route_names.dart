@@ -14,6 +14,12 @@ abstract final class RouteNames {
 
   static const servicesName = 'services';
   static const servicesPath = '/services';
+  static const servicesNewName = 'service-new';
+  static const servicesNewPath = '/services/new';
+  static const serviceDetailsName = 'service-details';
+  static const serviceDetailsPath = '/services/:id';
+  static const serviceEditName = 'service-edit';
+  static const serviceEditPath = '/services/:id/edit';
 
   static const verificationsName = 'verifications';
   static const verificationsPath = '/verifications';
@@ -39,9 +45,16 @@ abstract final class RouteNames {
     newVerificationPath,
     usersPath,
     createReaderPath,
+    servicesNewPath,
   };
 
-  static bool isAdminOnly(String location) => adminOnlyPaths.contains(location);
+  static bool isAdminOnly(String location) =>
+      adminOnlyPaths.contains(location) ||
+      location == servicesNewPath ||
+      RegExp(r'^/services/[^/]+/edit$').hasMatch(location);
+
+  static String serviceDetails(String id) => '/services/$id';
+  static String serviceEdit(String id) => '/services/$id/edit';
 
   static String processDetails(String id) => '/processes/$id';
   static String processHistory(String id) => '/processes/$id/history';

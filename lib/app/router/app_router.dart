@@ -10,6 +10,9 @@ import '../../features/auth/view/change_password_page.dart';
 import '../../features/auth/view/login_page.dart';
 import '../../features/users/view/create_reader_page.dart';
 import '../../features/users/view/users_page.dart';
+import '../../features/services/view/service_detail_page.dart';
+import '../../features/services/view/service_form_page.dart';
+import '../../features/services/view/service_list_page.dart';
 import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -86,8 +89,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.servicesName,
             path: RouteNames.servicesPath,
-            builder: (context, state) =>
-                const PlaceholderPage(title: 'Servicios'),
+            builder: (context, state) => const ServiceListPage(),
+          ),
+          GoRoute(
+            name: RouteNames.servicesNewName,
+            path: RouteNames.servicesNewPath,
+            builder: (context, state) => const ServiceFormPage(),
+          ),
+          GoRoute(
+            name: RouteNames.serviceEditName,
+            path: RouteNames.serviceEditPath,
+            builder: (context, state) => ServiceFormPage(
+              serviceId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            name: RouteNames.serviceDetailsName,
+            path: RouteNames.serviceDetailsPath,
+            builder: (context, state) => ServiceDetailPage(
+              serviceId: state.pathParameters['id']!,
+            ),
           ),
           GoRoute(
             name: RouteNames.verificationsName,
