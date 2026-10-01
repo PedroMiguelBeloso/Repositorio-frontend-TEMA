@@ -21,7 +21,12 @@ final class PermissionFailure extends AppFailure {
 }
 
 final class ValidationFailure extends AppFailure {
-  const ValidationFailure(String message) : super(message: message);
+  const ValidationFailure(
+    String message, {
+    this.fieldErrors = const {},
+  }) : super(message: message);
+
+  final Map<String, String> fieldErrors;
 }
 
 final class ConflictFailure extends AppFailure {

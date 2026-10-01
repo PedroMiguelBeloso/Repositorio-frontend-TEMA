@@ -6,6 +6,8 @@ import 'package:proyecto_tema_frontend/app/router/app_router.dart';
 import 'package:proyecto_tema_frontend/app/router/route_names.dart';
 import 'package:proyecto_tema_frontend/core/auth/session.dart';
 import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
+import 'package:proyecto_tema_frontend/features/services/model/service_models.dart';
+import 'package:proyecto_tema_frontend/features/services/viewmodel/service_list_view_model.dart';
 
 void main() {
   testWidgets('all configured authenticated routes resolve', (tester) async {
@@ -19,7 +21,6 @@ void main() {
       (RouteNames.processesPath, 'Procesos'),
       ('/processes/process-42', 'Detalle del proceso'),
       ('/processes/process-42/history', 'Historial del proceso'),
-      (RouteNames.servicesPath, 'Servicios'),
       (RouteNames.verificationsPath, 'Verificaciones'),
       (RouteNames.newVerificationPath, 'Nueva verificación'),
       ('/verifications/run-42', 'Detalle de verificación'),
@@ -33,6 +34,37 @@ void main() {
       expect(find.text(title), findsAtLeastNWidgets(1), reason: path);
       expect(find.text('Funcionalidad en desarrollo'), findsOneWidget);
     }
+  });
+
+  testWidgets('administrator can access the services list', (tester) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.administrator),
+    );
+    final router = container.read(appRouterProvider);
+
+    router.go(RouteNames.servicesPath);
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, RouteNames.servicesPath);
+    expect(find.text('Servicios'), findsAtLeastNWidgets(1));
+    expect(find.text('No hay servicios configurados.'), findsOneWidget);
+expect(find.text('Nuevo servicio'), findsAtLeastNWidgets(1));  });
+
+  testWidgets('reader can consult the services list without write actions', (tester) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.reader),
+    );
+    final router = container.read(appRouterProvider);
+
+    router.go(RouteNames.servicesPath);
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, RouteNames.servicesPath);
+    expect(find.text('Servicios'), findsAtLeastNWidgets(1));
+    expect(find.text('No hay servicios configurados.'), findsOneWidget);
+    expect(find.text('Nuevo servicio'), findsNothing);
   });
 
   testWidgets('unknown routes show an error and can return home', (
@@ -94,6 +126,20 @@ void main() {
     expect(router.routeInformationProvider.value.uri.path, RouteNames.homePath);
     expect(find.text('Nueva verificación'), findsNothing);
     expect(find.text('Inicio'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('reader is redirected from service edit', (tester) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.reader),
+    );
+    final router = container.read(appRouterProvider);
+
+    router.go(RouteNames.serviceEdit('service-42'));
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, RouteNames.homePath);
+    expect(find.text('Editar servicio'), findsNothing);
   });
 
   testWidgets('administrator can access new verification', (tester) async {
@@ -277,12 +323,26 @@ Future<ProviderContainer> _pumpApp(
     ProviderScope(
       overrides: [
         sessionProvider.overrideWith(() => _TestSessionNotifier(session)),
+        serviceListViewModelProvider.overrideWith(_TestServiceListViewModel.new),
       ],
       child: const App(),
     ),
   );
   await tester.pumpAndSettle();
   return ProviderScope.containerOf(tester.element(find.byType(App)));
+}
+
+class _TestServiceListViewModel extends ServiceListViewModel {
+  @override
+  Future<ServiceListState> build() async => ServiceListState(
+        items: const [],
+        page: const PageInfo(
+          page: 0,
+          size: 20,
+          totalElements: 0,
+          totalPages: 0,
+        ),
+      );
 }
 
 class _TestSessionNotifier extends SessionNotifier {

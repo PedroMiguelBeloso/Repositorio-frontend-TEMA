@@ -39,6 +39,7 @@ class ApiExceptionMapper {
       ),
       400 || 422 => ValidationFailure(
         _message(problem, 'Revisá los datos ingresados.'),
+        fieldErrors: _fieldErrors(problem?['details']),
       ),
       409 => ConflictFailure(
         _message(
@@ -88,6 +89,23 @@ class ApiExceptionMapper {
       if (value is String && _isSafeMessage(value)) return value.trim();
     }
     return fallback;
+  }
+
+
+  Map<String, String> _fieldErrors(Object? details) {
+    if (details is! List) return const {};
+
+    final errors = <String, String>{};
+    for (final item in details) {
+      if (item is! Map) continue;
+      final field = item['field'];
+      final message = item['message'];
+      if (field is String && field.trim().isNotEmpty &&
+          message is String && message.trim().isNotEmpty) {
+        errors[field.trim()] = message.trim();
+      }
+    }
+    return errors;
   }
 
   bool _isSafeMessage(String value) {
