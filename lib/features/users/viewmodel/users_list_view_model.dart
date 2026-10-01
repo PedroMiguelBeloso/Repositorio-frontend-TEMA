@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/api_exception_mapper.dart';
 import '../data/user_repository.dart';
 import '../../../features/auth/model/auth_models.dart';
 
@@ -10,10 +11,16 @@ class UsersListViewModel extends AsyncNotifier<List<User>> {
   }
 
   Future<List<User>> _fetchUsers() async {
-    final repo = ref.read(userRepositoryProvider);
-    // Consumir GET /users respetando paginación inicial
-    final result = await repo.listUsers(0, 50); 
-    return result.items;
+    try {
+      final repo = ref.read(userRepositoryProvider);
+      final result = await repo.listUsers(0, 50);
+      return result.items;
+    } catch (error) {
+      throw const ApiExceptionMapper().mapError(
+        error,
+        fallbackMessage: 'No se pudieron cargar los usuarios.',
+      );
+    }
   }
 
   Future<void> refresh() async {
@@ -22,7 +29,7 @@ class UsersListViewModel extends AsyncNotifier<List<User>> {
   }
 }
 
-final usersListViewModelProvider = 
+final usersListViewModelProvider =
     AsyncNotifierProvider.autoDispose<UsersListViewModel, List<User>>(
-  UsersListViewModel.new,
-);
+      UsersListViewModel.new,
+    );

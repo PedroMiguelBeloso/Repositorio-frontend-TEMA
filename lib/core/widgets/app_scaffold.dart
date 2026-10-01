@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/route_names.dart';
+import '../../app/theme/app_theme.dart';
 import '../auth/session_provider.dart';
 
 class AppScaffold extends ConsumerWidget {
@@ -21,17 +22,28 @@ class AppScaffold extends ConsumerWidget {
         if (constraints.maxWidth < 700) {
           return Scaffold(
             body: child,
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: (index) =>
-                  context.go(destinations[index].path),
-              destinations: [
-                for (final destination in destinations)
-                  NavigationDestination(
-                    icon: Icon(destination.icon),
-                    label: destination.label,
+            bottomNavigationBar: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: NavigationBar(
+                      selectedIndex: selectedIndex,
+                      onDestinationSelected: (index) =>
+                          context.go(destinations[index].path),
+                      destinations: [
+                        for (final destination in destinations)
+                          NavigationDestination(
+                            icon: Icon(destination.icon),
+                            label: destination.label,
+                          ),
+                      ],
+                    ),
                   ),
-              ],
+                  _accountMenu(context, ref),
+                  const SizedBox(width: AppSpacing.xs),
+                ],
+              ),
             ),
           );
         }
@@ -54,6 +66,10 @@ class AppScaffold extends ConsumerWidget {
                       label: Text(destination.label),
                     ),
                 ],
+                trailing: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                  child: _accountMenu(context, ref),
+                ),
               ),
               const VerticalDivider(width: 1),
               Expanded(child: child),
@@ -61,6 +77,31 @@ class AppScaffold extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _accountMenu(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<_AccountAction>(
+      tooltip: 'Cuenta',
+      icon: const Icon(Icons.account_circle_outlined),
+      onSelected: (action) {
+        switch (action) {
+          case _AccountAction.changePassword:
+            context.go(RouteNames.changePasswordPath);
+          case _AccountAction.logout:
+            ref.read(sessionProvider.notifier).clearSession();
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: _AccountAction.changePassword,
+          child: Text('Cambiar contraseña'),
+        ),
+        PopupMenuItem(
+          value: _AccountAction.logout,
+          child: Text('Cerrar sesión'),
+        ),
+      ],
     );
   }
 
@@ -114,3 +155,5 @@ class _NavigationDestination {
   final String path;
   final IconData icon;
 }
+
+enum _AccountAction { changePassword, logout }

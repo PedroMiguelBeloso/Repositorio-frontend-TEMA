@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../app/theme/app_theme.dart';
+import '../../../core/errors/app_failure.dart';
 import '../viewmodel/login_view_model.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -25,10 +28,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      ref.read(loginViewModelProvider.notifier).login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      ref
+          .read(loginViewModelProvider.notifier)
+          .login(_emailController.text.trim(), _passwordController.text);
     }
   }
 
@@ -42,7 +44,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         data: (_) => context.go('/'),
         error: (err, _) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(err.toString())),
+            SnackBar(
+              content: Text(
+                safeAppFailure(
+                  err,
+                  fallbackMessage: 'No se pudo iniciar sesión.',
+                ).message,
+              ),
+            ),
           );
         },
       );
@@ -51,7 +60,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return Scaffold(
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: Form(
             key: _formKey,
             child: Column(
@@ -59,32 +68,43 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               children: [
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Correo electrónico'),
+                  decoration: const InputDecoration(
+                    labelText: 'Correo electrónico',
+                  ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
-                    if (value == null || value.isEmpty || !value.contains('@')) {
+                    if (value == null ||
+                        value.isEmpty ||
+                        !value.contains('@')) {
                       return 'Ingrese un correo válido';
                     }
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Contraseña',
                     suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
-                  validator: (value) => value == null || value.isEmpty ? 'Ingrese su contraseña' : null,
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Ingrese su contraseña'
+                      : null,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.xxl),
                 loginState.isLoading
                     ? const CircularProgressIndicator()
-                    : ElevatedButton(
+                    : FilledButton(
                         onPressed: _submit,
                         child: const Text('Iniciar sesión'),
                       ),
