@@ -10,6 +10,7 @@ import '../../features/auth/view/change_password_page.dart';
 import '../../features/auth/view/login_page.dart';
 import '../../features/users/view/create_reader_page.dart';
 import '../../features/users/view/users_page.dart';
+import '../../features/processes/view/process_pages.dart';
 import '../../features/services/view/service_detail_page.dart';
 import '../../features/services/view/service_form_page.dart';
 import '../../features/services/view/service_list_page.dart';
@@ -31,8 +32,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isLoginRoute ? null : RouteNames.loginPath;
       }
       if (isLoginRoute) return RouteNames.homePath;
-      if (session!.isReader &&
-          RouteNames.isAdminOnly(state.matchedLocation)) {
+      if (session!.isReader && RouteNames.isAdminOnly(state.matchedLocation)) {
         return RouteNames.homePath;
       }
       return null;
@@ -71,20 +71,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.processesName,
             path: RouteNames.processesPath,
-            builder: (context, state) =>
-                const PlaceholderPage(title: 'Procesos'),
+            builder: (context, state) => const ProcessListPage(),
           ),
           GoRoute(
             name: RouteNames.processDetailsName,
             path: RouteNames.processDetailsPath,
             builder: (context, state) =>
-                const PlaceholderPage(title: 'Detalle del proceso'),
+                ProcessDetailPage(processId: state.pathParameters['id']!),
           ),
           GoRoute(
             name: RouteNames.processHistoryName,
             path: RouteNames.processHistoryPath,
             builder: (context, state) =>
-                const PlaceholderPage(title: 'Historial del proceso'),
+                ProcessHistoryPage(processId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            name: RouteNames.processStructureName,
+            path: RouteNames.processStructurePath,
+            builder: (context, state) => ProcessEditorPage(
+              processId: state.pathParameters['processId']!,
+              versionId: state.pathParameters['versionId']!,
+            ),
           ),
           GoRoute(
             name: RouteNames.servicesName,
@@ -99,16 +106,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.serviceEditName,
             path: RouteNames.serviceEditPath,
-            builder: (context, state) => ServiceFormPage(
-              serviceId: state.pathParameters['id'],
-            ),
+            builder: (context, state) =>
+                ServiceFormPage(serviceId: state.pathParameters['id']),
           ),
           GoRoute(
             name: RouteNames.serviceDetailsName,
             path: RouteNames.serviceDetailsPath,
-            builder: (context, state) => ServiceDetailPage(
-              serviceId: state.pathParameters['id']!,
-            ),
+            builder: (context, state) =>
+                ServiceDetailPage(serviceId: state.pathParameters['id']!),
           ),
           GoRoute(
             name: RouteNames.verificationsName,

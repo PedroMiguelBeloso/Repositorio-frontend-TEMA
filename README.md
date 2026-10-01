@@ -1,10 +1,9 @@
 # Proyecto Tema Frontend
 
-Base de infraestructura para el frontend de Proyecto Tema, construida con
-Flutter, Riverpod, go_router y Dio. Incluye navegación con permisos por rol,
-sesión en memoria, cliente HTTP común y tratamiento de errores. Las
-funcionalidades reales de autenticación, procesos, servicios y verificaciones
-se desarrollarán en tareas posteriores.
+Frontend de Proyecto Tema, construido con Flutter, Riverpod, go_router y Dio.
+Incluye autenticación, usuarios, servicios y configuración de evidencias en
+versiones de proceso, con navegación por rol, cliente HTTP común y tratamiento
+de errores.
 
 ## Requisitos
 
@@ -89,7 +88,11 @@ lib/
 	features/
 		auth/.gitkeep                         Reserva para autenticación.
 		home/.gitkeep                         Reserva para inicio.
-		processes/.gitkeep                    Reserva para procesos.
+		processes/
+			model/                              Árbol de proceso y evidencias.
+			data/                               Repositorio de procesos y catálogo.
+			viewmodel/                          Listado, detalle y editor.
+			view/                               Estructura y selector de catálogo.
 		services/.gitkeep                     Reserva para servicios.
 		integrations/.gitkeep                 Reserva para integraciones.
 		verifications/.gitkeep                Reserva para verificaciones.
@@ -108,9 +111,10 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 	tests; no se agregaron paquetes de mocking.
 - **Entrada y tema:** `main.dart` inicia con `ProviderScope`. `app.dart` enlaza
 	`MaterialApp.router`, el router y el tema centralizado.
-- **Navegación:** están configuradas las 11 rutas de la tabla inferior. Las
-	páginas funcionales son placeholders con título y «Funcionalidad en
-	desarrollo». La ruta no encontrada muestra un error y un botón para volver al
+- **Navegación:** las rutas de procesos permiten consultar procesos y versiones,
+	abrir estructuras y editar evidencias en borradores con permisos por rol.
+	Las áreas restantes aún incluyen placeholders. La ruta no encontrada muestra
+	un error y un botón para volver al
 	inicio. `AppScaffold` usa `NavigationBar` en pantallas angostas y
 	`NavigationRail` en anchas. Sin sesión se redirige a `/login`; Lector no puede
 	acceder a Integraciones ni crear verificaciones. Las rutas de Administrador
@@ -141,9 +145,10 @@ de Administrador vuelve a `/`.
 |---|---|---|---|---|---|
 | `/login` | `login` | Permitida | Redirige a `/` | Redirige a `/` | Temporal |
 | `/` | `home` | Redirige a `/login` | Permitida | Permitida | Temporal |
-| `/processes` | `processes` | Redirige a `/login` | Permitida | Permitida | Temporal |
-| `/processes/:id` | `process-details` | Redirige a `/login` | Permitida | Permitida | Temporal |
-| `/processes/:id/history` | `process-history` | Redirige a `/login` | Permitida | Permitida | Temporal |
+| `/processes` | `processes` | Redirige a `/login` | Permitida | Permitida | Funcional |
+| `/processes/:id` | `process-details` | Redirige a `/login` | Permitida | Permitida | Funcional |
+| `/processes/:id/history` | `process-history` | Redirige a `/login` | Permitida | Permitida | Funcional |
+| `/processes/:processId/versions/:versionId/structure` | `process-structure` | Redirige a `/login` | Consulta | Edición solo en borrador | Funcional |
 | `/services` | `services` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications` | `verifications` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications/new` | `new-verification` | Redirige a `/login` | Redirige a `/` | Permitida | Temporal |
@@ -171,6 +176,8 @@ detalle.
 	detalles técnicos.
 - `test/core/widgets/async_content_test.dart`: verifica carga, error con
 	callback de reintento y estado vacío.
+- `test/features/processes/`: cubre serialización de evidencia, operaciones y
+  orden, guardado/recarga, permisos y el contrato HTTP del catálogo.
 
 Las sesiones de prueba se inyectan con overrides del provider de sesión. El
 cliente HTTP permite inyectar `apiHttpClientAdapterProvider`; las pruebas usan

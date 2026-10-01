@@ -6,8 +6,13 @@ import 'package:proyecto_tema_frontend/app/router/app_router.dart';
 import 'package:proyecto_tema_frontend/app/router/route_names.dart';
 import 'package:proyecto_tema_frontend/core/auth/session.dart';
 import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
-import 'package:proyecto_tema_frontend/features/services/model/service_models.dart';
+import 'package:proyecto_tema_frontend/features/services/model/service_models.dart'
+    hide ProcessStatus;
 import 'package:proyecto_tema_frontend/features/services/viewmodel/service_list_view_model.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/process_repository.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/process_repository_provider.dart';
+import 'package:proyecto_tema_frontend/features/processes/model/evidence_expectation.dart';
+import 'package:proyecto_tema_frontend/features/processes/model/process_models.dart';
 
 void main() {
   testWidgets('all configured authenticated routes resolve', (tester) async {
@@ -32,8 +37,65 @@ void main() {
       router.go(path);
       await tester.pumpAndSettle();
       expect(find.text(title), findsAtLeastNWidgets(1), reason: path);
-      expect(find.text('Funcionalidad en desarrollo'), findsOneWidget);
+      if (path.startsWith('/processes')) {
+        expect(find.text('Funcionalidad en desarrollo'), findsNothing);
+      } else {
+        expect(find.text('Funcionalidad en desarrollo'), findsOneWidget);
+      }
     }
+  });
+
+  testWidgets('reader can inspect a draft structure without write controls', (
+    tester,
+  ) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.reader),
+    );
+    final router = container.read(appRouterProvider);
+
+    router.go(RouteNames.processStructure('process-42', 'version-42'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Estructura'), findsOneWidget);
+    expect(find.text('Ticket con requerimiento'), findsOneWidget);
+    expect(find.text('Agregar entrada'), findsNothing);
+    expect(find.text('Guardar'), findsNothing);
+    expect(find.text('Editar evidencia'), findsNothing);
+  });
+
+  testWidgets('administrator adds a catalog entry to a draft input', (
+    tester,
+  ) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.administrator),
+    );
+    container
+        .read(appRouterProvider)
+        .go(RouteNames.processStructure('process-42', 'version-42'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Agregar entrada'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cambiar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ticket con requerimiento').last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog).last,
+        matching: find.text('Guardar'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ticket con requerimiento'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('process-draft-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Borrador guardado.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('administrator can access the services list', (tester) async {
@@ -46,12 +108,18 @@ void main() {
     router.go(RouteNames.servicesPath);
     await tester.pumpAndSettle();
 
-    expect(router.routeInformationProvider.value.uri.path, RouteNames.servicesPath);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RouteNames.servicesPath,
+    );
     expect(find.text('Servicios'), findsAtLeastNWidgets(1));
     expect(find.text('No hay servicios configurados.'), findsOneWidget);
-expect(find.text('Nuevo servicio'), findsAtLeastNWidgets(1));  });
+    expect(find.text('Nuevo servicio'), findsAtLeastNWidgets(1));
+  });
 
-  testWidgets('reader can consult the services list without write actions', (tester) async {
+  testWidgets('reader can consult the services list without write actions', (
+    tester,
+  ) async {
     final container = await _pumpApp(
       tester,
       session: const Session(role: UserRole.reader),
@@ -61,7 +129,10 @@ expect(find.text('Nuevo servicio'), findsAtLeastNWidgets(1));  });
     router.go(RouteNames.servicesPath);
     await tester.pumpAndSettle();
 
-    expect(router.routeInformationProvider.value.uri.path, RouteNames.servicesPath);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RouteNames.servicesPath,
+    );
     expect(find.text('Servicios'), findsAtLeastNWidgets(1));
     expect(find.text('No hay servicios configurados.'), findsOneWidget);
     expect(find.text('Nuevo servicio'), findsNothing);
@@ -323,7 +394,10 @@ Future<ProviderContainer> _pumpApp(
     ProviderScope(
       overrides: [
         sessionProvider.overrideWith(() => _TestSessionNotifier(session)),
-        serviceListViewModelProvider.overrideWith(_TestServiceListViewModel.new),
+        serviceListViewModelProvider.overrideWith(
+          _TestServiceListViewModel.new,
+        ),
+        processRepositoryProvider.overrideWithValue(_TestProcessRepository()),
       ],
       child: const App(),
     ),
@@ -335,14 +409,9 @@ Future<ProviderContainer> _pumpApp(
 class _TestServiceListViewModel extends ServiceListViewModel {
   @override
   Future<ServiceListState> build() async => ServiceListState(
-        items: const [],
-        page: const PageInfo(
-          page: 0,
-          size: 20,
-          totalElements: 0,
-          totalPages: 0,
-        ),
-      );
+    items: const [],
+    page: const PageInfo(page: 0, size: 20, totalElements: 0, totalPages: 0),
+  );
 }
 
 class _TestSessionNotifier extends SessionNotifier {
@@ -352,4 +421,128 @@ class _TestSessionNotifier extends SessionNotifier {
 
   @override
   Session? build() => initialSession;
+}
+
+class _TestProcessRepository implements ProcessRepository {
+  static const _ticket = RegistryDefinition(
+    id: 'registry-ticket',
+    key: 'ticket',
+    canonicalName: 'Ticket con requerimiento',
+    evidenceType: EvidenceType.ticket,
+    preloaded: true,
+  );
+
+  static final _draft = ProcessVersionDraft(
+    id: 'version-42',
+    processId: 'process-42',
+    officialVersion: '1.0',
+    versionDate: DateTime(2026, 10, 1),
+    status: ProcessStatus.draft,
+    revision: 2,
+    objective: 'Gestionar requerimientos.',
+    owner: 'Responsable de Operaciones',
+    policies: const [],
+    macroActivities: const [
+      MacroActivityDraft(
+        id: 'macro-42',
+        name: 'Gestionar requerimiento',
+        order: 0,
+        inputs: [
+          EvidenceExpectation(
+            id: 'evidence-42',
+            registryDefinitionId: 'registry-ticket',
+            registryDefinition: _ticket,
+            order: 0,
+          ),
+        ],
+        activities: [
+          ActivityDraft(
+            id: 'activity-42',
+            name: 'Resolver',
+            instructions: 'Resolver el requerimiento.',
+            order: 0,
+          ),
+        ],
+      ),
+    ],
+  );
+
+  @override
+  Future<ProcessVersionDraft> getVersion({
+    required String processId,
+    required String versionId,
+  }) async => _draft;
+
+  @override
+  Future<ProcessVersionDraft> saveDraft(
+    ProcessVersionDraft draft,
+    List<RegistryDefinition> definitions,
+  ) async => draft.copyWith(revision: draft.revision + 1);
+
+  @override
+  Future<ProcessPage<RegistryDefinition>> searchRegistry({
+    required String query,
+    required int page,
+    required int size,
+  }) async => const ProcessPage(items: [_ticket], page: 0, totalPages: 1);
+
+  @override
+  Future<RegistryDefinition> createRegistryDefinition({
+    required String canonicalName,
+    required EvidenceType evidenceType,
+    String? officialNomenclature,
+  }) async => RegistryDefinition(
+    id: 'created',
+    key: 'generated',
+    canonicalName: canonicalName,
+    evidenceType: evidenceType,
+    officialNomenclature: officialNomenclature,
+    preloaded: false,
+  );
+
+  @override
+  Future<ProcessDefinition> getProcess(String processId) async =>
+      const ProcessDefinition(
+        id: 'process-42',
+        code: 'SUPPORT_SOFTWARE_FACTORY',
+        name: 'Soporte y Software Factory',
+        m2Enabled: true,
+      );
+
+  @override
+  Future<ProcessPage<ProcessDefinition>> listProcesses({
+    required int page,
+    required int size,
+  }) async => const ProcessPage(
+    items: [
+      ProcessDefinition(
+        id: 'process-42',
+        code: 'SUPPORT_SOFTWARE_FACTORY',
+        name: 'Soporte y Software Factory',
+        m2Enabled: true,
+      ),
+    ],
+    page: 0,
+    totalPages: 1,
+  );
+
+  @override
+  Future<ProcessPage<ProcessVersionSummary>> listVersions({
+    required String processId,
+    required int page,
+    required int size,
+  }) async => ProcessPage(
+    items: [
+      ProcessVersionSummary(
+        id: 'version-42',
+        processId: 'process-42',
+        officialVersion: '1.0',
+        versionDate: DateTime(2026, 10, 1),
+        status: ProcessStatus.draft,
+        revision: 2,
+      ),
+    ],
+    page: 0,
+    totalPages: 1,
+  );
 }

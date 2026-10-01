@@ -11,6 +11,9 @@ abstract final class RouteNames {
   static const processDetailsPath = '/processes/:id';
   static const processHistoryName = 'process-history';
   static const processHistoryPath = '/processes/:id/history';
+  static const processStructureName = 'process-structure';
+  static const processStructurePath =
+      '/processes/:processId/versions/:versionId/structure';
 
   static const servicesName = 'services';
   static const servicesPath = '/services';
@@ -58,6 +61,8 @@ abstract final class RouteNames {
 
   static String processDetails(String id) => '/processes/$id';
   static String processHistory(String id) => '/processes/$id/history';
+  static String processStructure(String processId, String versionId) =>
+      '/processes/$processId/versions/$versionId/structure';
   static String verificationDetails(String runId) => '/verifications/$runId';
   static String verificationResults(String runId) =>
       '/verifications/$runId/results';
