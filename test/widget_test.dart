@@ -6,13 +6,14 @@ import 'package:proyecto_tema_frontend/app/router/app_router.dart';
 import 'package:proyecto_tema_frontend/app/router/route_names.dart';
 import 'package:proyecto_tema_frontend/core/auth/session.dart';
 import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
+import 'package:proyecto_tema_frontend/features/processes/viewmodel/process_list_view_model.dart';
 import 'package:proyecto_tema_frontend/features/services/model/service_models.dart'
     hide ProcessStatus;
 import 'package:proyecto_tema_frontend/features/services/viewmodel/service_list_view_model.dart';
-import 'package:proyecto_tema_frontend/features/processes/data/process_repository.dart';
-import 'package:proyecto_tema_frontend/features/processes/data/process_repository_provider.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository_provider.dart';
 import 'package:proyecto_tema_frontend/features/processes/model/evidence_expectation.dart';
-import 'package:proyecto_tema_frontend/features/processes/model/process_models.dart';
+import 'package:proyecto_tema_frontend/features/processes/model/process_structure_models.dart';
 
 void main() {
   testWidgets('all configured authenticated routes resolve', (tester) async {
@@ -21,27 +22,27 @@ void main() {
       session: const Session(role: UserRole.administrator),
     );
     final router = container.read(appRouterProvider);
-    const routes = <(String, String)>[
-      (RouteNames.homePath, 'Inicio'),
-      (RouteNames.processesPath, 'Procesos'),
-      ('/processes/process-42', 'Detalle del proceso'),
-      ('/processes/process-42/history', 'Historial del proceso'),
-      (RouteNames.verificationsPath, 'Verificaciones'),
-      (RouteNames.newVerificationPath, 'Nueva verificación'),
-      ('/verifications/run-42', 'Detalle de verificación'),
-      ('/verifications/run-42/results', 'Resultados de verificación'),
-      (RouteNames.integrationsPath, 'Integraciones'),
+    const routes = <(String, String, bool)>[
+      (RouteNames.homePath, 'Inicio', true),
+      (RouteNames.processesPath, 'Procesos', false),
+      ('/processes/process-42', 'Detalle del proceso', false),
+      ('/processes/process-42/history', 'Historial del proceso', false),
+      (RouteNames.verificationsPath, 'Verificaciones', true),
+      (RouteNames.newVerificationPath, 'Nueva verificación', true),
+      ('/verifications/run-42', 'Detalle de verificación', true),
+      ('/verifications/run-42/results', 'Resultados de verificación', true),
+      (RouteNames.integrationsPath, 'Integraciones', true),
     ];
 
-    for (final (path, title) in routes) {
+    for (final (path, title, isPlaceholder) in routes) {
       router.go(path);
       await tester.pumpAndSettle();
       expect(find.text(title), findsAtLeastNWidgets(1), reason: path);
-      if (path.startsWith('/processes')) {
-        expect(find.text('Funcionalidad en desarrollo'), findsNothing);
-      } else {
-        expect(find.text('Funcionalidad en desarrollo'), findsOneWidget);
-      }
+      expect(
+        find.text('Funcionalidad en desarrollo'),
+        isPlaceholder ? findsOneWidget : findsNothing,
+        reason: path,
+      );
     }
   });
 
@@ -397,13 +398,22 @@ Future<ProviderContainer> _pumpApp(
         serviceListViewModelProvider.overrideWith(
           _TestServiceListViewModel.new,
         ),
-        processRepositoryProvider.overrideWithValue(_TestProcessRepository()),
+        processStructureRepositoryProvider.overrideWithValue(
+          _TestProcessRepository(),
+        ),
+        processListViewModelProvider.overrideWith(_TestProcessListViewModel.new),
       ],
       child: const App(),
     ),
   );
   await tester.pumpAndSettle();
   return ProviderScope.containerOf(tester.element(find.byType(App)));
+}
+
+class _TestProcessListViewModel extends ProcessListViewModel {
+  @override
+  Future<ProcessListState> build() async =>
+      const ProcessListState(items: []);
 }
 
 class _TestServiceListViewModel extends ServiceListViewModel {
@@ -423,7 +433,7 @@ class _TestSessionNotifier extends SessionNotifier {
   Session? build() => initialSession;
 }
 
-class _TestProcessRepository implements ProcessRepository {
+class _TestProcessRepository implements ProcessStructureRepository {
   static const _ticket = RegistryDefinition(
     id: 'registry-ticket',
     key: 'ticket',

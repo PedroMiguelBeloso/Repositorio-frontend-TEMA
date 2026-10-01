@@ -11,6 +11,10 @@ import '../../features/auth/view/login_page.dart';
 import '../../features/users/view/create_reader_page.dart';
 import '../../features/users/view/users_page.dart';
 import '../../features/processes/view/process_pages.dart';
+import '../../features/processes/view/process_editor_page.dart' as m1_editor;
+import '../../features/processes/view/process_list_page.dart' as m1_list;
+import '../../features/processes/viewmodel/process_editor_view_model.dart'
+  as m1_editor_vm;
 import '../../features/services/view/service_detail_page.dart';
 import '../../features/services/view/service_form_page.dart';
 import '../../features/services/view/service_list_page.dart';
@@ -71,7 +75,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.processesName,
             path: RouteNames.processesPath,
-            builder: (context, state) => const ProcessListPage(),
+            builder: (context, state) => const m1_list.ProcessListPage(),
           ),
           GoRoute(
             name: RouteNames.processDetailsName,
@@ -92,6 +96,52 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               processId: state.pathParameters['processId']!,
               versionId: state.pathParameters['versionId']!,
             ),
+          ),
+          GoRoute(
+            name: RouteNames.processVersionName,
+            path: RouteNames.processVersionPath,
+            builder: (context, state) => m1_editor.ProcessEditorPage(
+              processId: state.pathParameters['id']!,
+              versionId: state.pathParameters['versionId']!,
+            ),
+            onExit: (context, state) async {
+              final processId = state.pathParameters['id'];
+              final versionId = state.pathParameters['versionId'];
+              if (processId == null || versionId == null) return true;
+
+              final notifier = ref.read(
+                m1_editor_vm.processEditorViewModelProvider((
+                  processId: processId,
+                  versionId: versionId,
+                )).notifier,
+              );
+              if (!notifier.hasUnsavedChanges) return true;
+
+              return await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Cambios sin guardar'),
+                      content: const Text(
+                        'Hay cambios sin guardar. Si salís ahora, se perderán.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Seguir editando'),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.error,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Salir sin guardar'),
+                        ),
+                      ],
+                    ),
+                  ) ??
+                  false;
+            },
           ),
           GoRoute(
             name: RouteNames.servicesName,

@@ -3,247 +3,174 @@ import 'package:dio/dio.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception_mapper.dart';
-import '../model/evidence_expectation.dart';
 import '../model/process_models.dart';
+import 'dto/process_dtos.dart';
 import 'process_repository.dart';
 
 class ProcessRepositoryImpl implements ProcessRepository {
-	ProcessRepositoryImpl(this._apiClient);
+  ProcessRepositoryImpl(this._apiClient);
 
-	final ApiClient _apiClient;
-	final ApiExceptionMapper _exceptionMapper = const ApiExceptionMapper();
+  final ApiClient _apiClient;
+  final ApiExceptionMapper _exceptionMapper = const ApiExceptionMapper();
 
-	@override
-	Future<ProcessPage<ProcessDefinition>> listProcesses({
-		required int page,
-		required int size,
-	}) async {
-		try {
-			final response = await _apiClient.get(
-				'/processes',
-				queryParameters: {'page': page, 'size': size},
-			);
-			final json = _asMap(response.data);
-			return ProcessPage(
-				items: _readItems(json).map(ProcessDefinition.fromJson).toList(),
-				page: _readPageNumber(json),
-				totalPages: _readTotalPages(json),
-			);
-		} on DioException catch (error) {
-			throw _exceptionMapper.map(error);
-		} on AppFailure {
-			rethrow;
-		} catch (_) {
-			throw const UnexpectedFailure(
-				'La respuesta de procesos no tiene un formato válido.',
-			);
-		}
-	}
+  @override
+  Future<List<ProcessDefinition>> listProcesses() async {
+    final dtos = await _readAllPages(
+      path: '/processes',
+      parseItem: ProcessDefinitionDto.fromJson,
+      message: 'La respuesta de procesos no tiene un formato válido.',
+    );
+    return dtos.map((dto) => dto.toModel()).toList();
+  }
 
-	@override
-	Future<ProcessDefinition> getProcess(String processId) async {
-		try {
-			final response = await _apiClient.get('/processes/$processId');
-			return ProcessDefinition.fromJson(_asMap(response.data));
-		} on DioException catch (error) {
-			throw _exceptionMapper.map(error);
-		} on AppFailure {
-			rethrow;
-		} catch (_) {
-			throw const UnexpectedFailure(
-				'No se pudo interpretar el proceso seleccionado.',
-			);
-		}
-	}
+  @override
+  Future<ProcessDefinition> getProcess(String processId) async => _guard(
+    () async {
+      final response = await _apiClient.get('/processes/$processId');
+      return ProcessDefinitionDto.fromJson(_asMap(response.data)).toModel();
+    },
+    'La respuesta del proceso no tiene un formato válido.',
+  );
 
-	@override
-	Future<ProcessPage<ProcessVersionSummary>> listVersions({
-		required String processId,
-		required int page,
-		required int size,
-	}) async {
-		try {
-			final response = await _apiClient.get(
-				'/processes/$processId/versions',
-				queryParameters: {'page': page, 'size': size},
-			);
-			final json = _asMap(response.data);
-			return ProcessPage(
-				items: _readItems(json).map(ProcessVersionSummary.fromJson).toList(),
-				page: _readPageNumber(json),
-				totalPages: _readTotalPages(json),
-			);
-		} on DioException catch (error) {
-			throw _exceptionMapper.map(error);
-		} on AppFailure {
-			rethrow;
-		} catch (_) {
-			throw const UnexpectedFailure(
-				'No se pudieron cargar las versiones del proceso.',
-			);
-		}
-	}
+  @override
+  Future<ProcessDefinition> createProcess(M1ProcessCode code) async {
+    if (!M1ProcessCode.creatableValues.contains(code)) {
+      throw const ValidationFailure('El proceso seleccionado no es válido.');
+    }
+    return _guard(
+      () async {
+        final request = CreateProcessRequestDto(code: code, name: code.label);
+        final response = await _apiClient.post(
+          '/processes',
+          data: request.toJson(),
+        );
+        return ProcessDefinitionDto.fromJson(_asMap(response.data)).toModel();
+      },
+      'No se pudo interpretar la respuesta al crear el proceso.',
+    );
+  }
 
-	@override
-	Future<ProcessVersionDraft> getVersion({
-		required String processId,
-		required String versionId,
-	}) async {
-		try {
-			final response = await _apiClient.get(
-				'/processes/$processId/versions/$versionId',
-			);
-			final definitions = await _readAllDefinitions();
-			return ProcessVersionDraft.fromJson(
-				_asMap(response.data),
-				{for (final definition in definitions) definition.id: definition},
-			);
-		} on DioException catch (error) {
-			throw _exceptionMapper.map(error);
-		} on AppFailure {
-			rethrow;
-		} catch (_) {
-			throw const UnexpectedFailure(
-				'No se pudo interpretar la estructura de la versión.',
-			);
-		}
-	}
+  @override
+  Future<List<ProcessVersion>> listVersions(String processId) async {
+    final dtos = await _readAllPages(
+      path: '/processes/$processId/versions',
+      parseItem: ProcessVersionDto.fromJson,
+      message: 'La respuesta de versiones no tiene un formato válido.',
+    );
+    return dtos.map((dto) => dto.toModel()).toList();
+  }
 
-	@override
-	Future<ProcessVersionDraft> saveDraft(
-		ProcessVersionDraft draft,
-		List<RegistryDefinition> definitions,
-	) async {
-		try {
-			final response = await _apiClient.put(
-				'/processes/${draft.processId}/versions/${draft.id}',
-				data: draft.toSaveJson(),
-			);
-			return ProcessVersionDraft.fromJson(
-				_asMap(response.data),
-				{for (final definition in definitions) definition.id: definition},
-			);
-		} on DioException catch (error) {
-			throw _exceptionMapper.map(error);
-		} on AppFailure {
-			rethrow;
-		} catch (_) {
-			throw const UnexpectedFailure(
-				'No se pudo interpretar la respuesta al guardar el borrador.',
-			);
-		}
-	}
+  @override
+  Future<ProcessVersion> createDraftVersion({
+    required String processId,
+    required String officialVersion,
+    required DateTime versionDate,
+  }) async {
+    if (officialVersion.trim().isEmpty) {
+      throw const ValidationFailure('La versión oficial es obligatoria.');
+    }
+    return _guard(
+      () async {
+        final request = CreateVersionRequestDto(
+          officialVersion: officialVersion,
+          versionDate: versionDate,
+        );
+        final response = await _apiClient.post(
+          '/processes/$processId/versions',
+          data: request.toJson(),
+        );
+        return ProcessVersionDto.fromJson(_asMap(response.data)).toModel();
+      },
+      'No se pudo interpretar la respuesta al iniciar el borrador.',
+    );
+  }
 
-	@override
-	Future<ProcessPage<RegistryDefinition>> searchRegistry({
-		required String query,
-		required int page,
-		required int size,
-	}) async {
-		try {
-			final response = await _apiClient.get(
-				'/registry-definitions',
-				queryParameters: {
-					if (query.trim().isNotEmpty) 'query': query.trim(),
-					'page': page,
-					'size': size,
-				},
-			);
-			final json = _asMap(response.data);
-			return ProcessPage(
-				items: _readItems(json).map(_readRegistryDefinition).toList(),
-				page: _readPageNumber(json),
-				totalPages: _readTotalPages(json),
-			);
-		} on DioException catch (error) {
-			throw _exceptionMapper.map(error);
-		} on AppFailure {
-			rethrow;
-		} catch (_) {
-			throw const UnexpectedFailure(
-				'La respuesta del catálogo no tiene un formato válido.',
-			);
-		}
-	}
+  @override
+  Future<ProcessVersion> getVersion({
+    required String processId,
+    required String versionId,
+  }) async => _guard(
+    () async {
+      final response = await _apiClient.get(
+        '/processes/$processId/versions/$versionId',
+      );
+      return ProcessVersionDto.fromJson(_asMap(response.data)).toModel();
+    },
+    'La respuesta del borrador no tiene un formato válido.',
+  );
 
-	@override
-	Future<RegistryDefinition> createRegistryDefinition({
-		required String canonicalName,
-		required EvidenceType evidenceType,
-		String? officialNomenclature,
-	}) async {
-		try {
-			final response = await _apiClient.post(
-				'/registry-definitions',
-				data: {
-					'canonicalName': canonicalName.trim(),
-					'evidenceType': evidenceType.apiValue,
-					if (officialNomenclature?.trim().isNotEmpty == true)
-						'officialNomenclature': officialNomenclature!.trim(),
-				},
-			);
-			return _readRegistryDefinition(_asMap(response.data));
-		} on DioException catch (error) {
-			throw _exceptionMapper.map(error);
-		} on AppFailure {
-			rethrow;
-		} catch (_) {
-			throw const UnexpectedFailure(
-				'No se pudo interpretar el registro creado.',
-			);
-		}
-	}
+  @override
+  Future<ProcessVersion> saveDraft(ProcessVersion version) async {
+    if (!version.status.isDraft) {
+      throw const ValidationFailure(
+        'Solo se puede guardar una versión en estado borrador.',
+      );
+    }
+    return _guard(
+      () async {
+        final request = SaveDraftRequestDto(version: version);
+        final response = await _apiClient.put(
+          '/processes/${version.processId}/versions/${version.id}',
+          data: request.toJson(),
+        );
+        return ProcessVersionDto.fromJson(_asMap(response.data)).toModel();
+      },
+      'No se pudo interpretar la respuesta al guardar el borrador.',
+    );
+  }
 
-	Future<List<RegistryDefinition>> _readAllDefinitions() async {
-		const size = 20;
-		var page = 0;
-		final definitions = <RegistryDefinition>[];
-		while (true) {
-			final result = await searchRegistry(query: '', page: page, size: size);
-			definitions.addAll(result.items);
-			if (!result.hasNext) return definitions;
-			page = result.page + 1;
-		}
-	}
+  Future<List<T>> _readAllPages<T>({
+    required String path,
+    required T Function(Map<String, dynamic>) parseItem,
+    required String message,
+  }) async => _guard(() async {
+    const pageSize = 50;
+    var page = 0;
+    final result = <T>[];
+    while (true) {
+      final response = await _apiClient.get(
+        path,
+        queryParameters: {'page': page, 'size': pageSize},
+      );
+      final json = _asMap(response.data);
+      result.addAll(_readItems(json).map(parseItem));
+      final pageJson = _asMap(json['page']);
+      final currentPage = _readInt(pageJson['page']);
+      final totalPages = _readInt(pageJson['totalPages']);
+      if (currentPage + 1 >= totalPages) return result;
+      page = currentPage + 1;
+    }
+  }, message);
 
-	RegistryDefinition _readRegistryDefinition(Map<String, dynamic> json) =>
-			RegistryDefinition(
-				id: json['id'] as String,
-				key: json['key'] as String? ?? '',
-				canonicalName: json['canonicalName'] as String? ?? '',
-				evidenceType: EvidenceType.fromApi(json['evidenceType'] as String?),
-				officialNomenclature: json['officialNomenclature'] as String?,
-				preloaded: json['preloaded'] as bool? ?? false,
-			);
+  Map<String, dynamic> _asMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    throw const FormatException('Respuesta JSON inválida.');
+  }
 
-	Map<String, dynamic> _asMap(Object? value) {
-		if (value is Map<String, dynamic>) return value;
-		if (value is Map) return Map<String, dynamic>.from(value);
-		throw const FormatException('Respuesta JSON inválida.');
-	}
+  List<Map<String, dynamic>> _readItems(Map<String, dynamic> json) {
+    final items = json['items'];
+    if (items is! List) {
+      throw const FormatException('Falta la colección de resultados.');
+    }
+    return items.map((item) => _asMap(item)).toList();
+  }
 
-	List<Map<String, dynamic>> _readItems(Map<String, dynamic> json) {
-		final items = json['items'];
-		if (items is! List) {
-			throw const FormatException('Falta la colección de resultados.');
-		}
-		return items.map((item) {
-			if (item is Map<String, dynamic>) return item;
-			if (item is Map) return Map<String, dynamic>.from(item);
-			throw const FormatException('Elemento JSON inválido.');
-		}).toList();
-	}
+  int _readInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    throw const FormatException('Valor numérico inválido.');
+  }
 
-	int _readPageNumber(Map<String, dynamic> json) =>
-			_readPageInfo(json)['page'] as int? ?? 0;
-
-	int _readTotalPages(Map<String, dynamic> json) =>
-			_readPageInfo(json)['totalPages'] as int? ?? 0;
-
-	Map<String, dynamic> _readPageInfo(Map<String, dynamic> json) {
-		final page = json['page'];
-		if (page is Map<String, dynamic>) return page;
-		if (page is Map) return Map<String, dynamic>.from(page);
-		throw const FormatException('Falta la información de paginación.');
-	}
+  Future<T> _guard<T>(Future<T> Function() operation, String message) async {
+    try {
+      return await operation();
+    } on DioException catch (error) {
+      throw _exceptionMapper.map(error);
+    } on AppFailure {
+      rethrow;
+    } catch (_) {
+      throw UnexpectedFailure(message);
+    }
+  }
 }

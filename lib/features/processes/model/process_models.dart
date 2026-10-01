@@ -1,21 +1,123 @@
-import 'evidence_expectation.dart';
+enum M1ProcessCode {
+  startUp('START_UP', 'Start Up'),
+  takeOver('TAKE_OVER', 'Take Over'),
+  supportSoftwareFactory(
+    'SUPPORT_SOFTWARE_FACTORY',
+    'Soporte y Software Factory',
+  ),
+  qualityContinuousImprovement(
+    'QUALITY_CONTINUOUS_IMPROVEMENT',
+    'Calidad y Mejora Continua',
+  ),
+  unknown('UNKNOWN', 'Proceso no reconocido');
 
-enum ProcessStatus {
-  draft('DRAFT', 'Borrador'),
-  published('PUBLISHED', 'Publicado'),
-  archived('ARCHIVED', 'Archivado'),
-  unknown('UNKNOWN', 'Estado no reconocido');
-
-  const ProcessStatus(this.apiValue, this.label);
+  const M1ProcessCode(this.apiValue, this.label);
 
   final String apiValue;
   final String label;
 
-  static ProcessStatus fromApi(String? value) =>
-      ProcessStatus.values.firstWhere(
-        (status) => status.apiValue == value,
-        orElse: () => ProcessStatus.unknown,
-      );
+  static List<M1ProcessCode> get creatableValues => const [
+        startUp,
+        takeOver,
+        supportSoftwareFactory,
+        qualityContinuousImprovement,
+      ];
+
+  static M1ProcessCode fromApi(String? value) {
+    return M1ProcessCode.values.firstWhere(
+      (code) => code.apiValue == value,
+      orElse: () => M1ProcessCode.unknown,
+    );
+  }
+}
+
+enum ProcessVersionStatus {
+  draft('DRAFT', 'Borrador'),
+  published('PUBLISHED', 'Publicada'),
+  archived('ARCHIVED', 'Archivada'),
+  unknown('UNKNOWN', 'Estado no reconocido');
+
+  const ProcessVersionStatus(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  bool get isDraft => this == ProcessVersionStatus.draft;
+
+  static ProcessVersionStatus fromApi(String? value) {
+    return ProcessVersionStatus.values.firstWhere(
+      (status) => status.apiValue == value,
+      orElse: () => ProcessVersionStatus.unknown,
+    );
+  }
+}
+
+enum EvidenceType {
+  document('DOCUMENT'),
+  folder('FOLDER'),
+  ticket('TICKET'),
+  imputations('IMPUTATIONS'),
+  toolRecord('TOOL_RECORD'),
+  unknown('UNKNOWN');
+
+  const EvidenceType(this.apiValue);
+  final String apiValue;
+
+  static EvidenceType fromApi(String? value) {
+    return EvidenceType.values.firstWhere(
+      (type) => type.apiValue == value,
+      orElse: () => EvidenceType.unknown,
+    );
+  }
+}
+
+enum ApplicabilityMode {
+  always('ALWAYS'),
+  caseDependent('CASE_DEPENDENT'),
+  unknown('UNKNOWN');
+
+  const ApplicabilityMode(this.apiValue);
+  final String apiValue;
+
+  static ApplicabilityMode fromApi(String? value) {
+    return ApplicabilityMode.values.firstWhere(
+      (mode) => mode.apiValue == value,
+      orElse: () => ApplicabilityMode.unknown,
+    );
+  }
+}
+
+enum EvidenceCardinality {
+  one('ONE'),
+  multiple('MULTIPLE'),
+  unknown('UNKNOWN');
+
+  const EvidenceCardinality(this.apiValue);
+  final String apiValue;
+
+  static EvidenceCardinality fromApi(String? value) {
+    return EvidenceCardinality.values.firstWhere(
+      (cardinality) => cardinality.apiValue == value,
+      orElse: () => EvidenceCardinality.unknown,
+    );
+  }
+}
+
+enum EvidenceLocation {
+  input('INPUT'),
+  activityRecord('ACTIVITY_RECORD'),
+  output('OUTPUT'),
+  unknown('UNKNOWN');
+
+  const EvidenceLocation(this.apiValue);
+  final String apiValue;
+
+  static EvidenceLocation fromApi(String? value) {
+    return EvidenceLocation.values.firstWhere(
+      (location) => location.apiValue == value,
+      orElse: () => EvidenceLocation.unknown,
+    );
+  }
 }
 
 class ProcessDefinition {
@@ -24,200 +126,165 @@ class ProcessDefinition {
     required this.code,
     required this.name,
     required this.m2Enabled,
+    required this.createdAt,
   });
 
   final String id;
-  final String code;
+  final M1ProcessCode code;
   final String name;
   final bool m2Enabled;
+  final DateTime createdAt;
 
-  factory ProcessDefinition.fromJson(Map<String, dynamic> json) =>
-      ProcessDefinition(
-        id: json['id'] as String,
-        code: json['code'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        m2Enabled: json['m2Enabled'] as bool? ?? false,
-      );
+  String get displayName => code == M1ProcessCode.unknown ? name : code.label;
 }
 
-class ProcessPage<T> {
-  const ProcessPage({
-    required this.items,
-    required this.page,
-    required this.totalPages,
-  });
-
-  final List<T> items;
-  final int page;
-  final int totalPages;
-
-  bool get hasNext => page + 1 < totalPages;
-}
-
-class ProcessVersionSummary {
-  const ProcessVersionSummary({
+class EvidenceExpectation {
+  const EvidenceExpectation({
     required this.id,
-    required this.processId,
-    required this.officialVersion,
-    required this.versionDate,
-    required this.status,
-    required this.revision,
+    required this.registryDefinitionId,
+    required this.displayName,
+    required this.evidenceType,
+    required this.applicability,
+    required this.cardinality,
+    required this.location,
+    required this.order,
+    this.officialNomenclature,
   });
 
   final String id;
-  final String processId;
-  final String officialVersion;
-  final DateTime versionDate;
-  final ProcessStatus status;
-  final int revision;
+  final String registryDefinitionId;
+  final String displayName;
+  final EvidenceType evidenceType;
+  final ApplicabilityMode applicability;
+  final EvidenceCardinality cardinality;
+  final EvidenceLocation location;
+  final int order;
+  final String? officialNomenclature;
 
-  factory ProcessVersionSummary.fromJson(Map<String, dynamic> json) =>
-      ProcessVersionSummary(
-        id: json['id'] as String,
-        processId: json['processId'] as String,
-        officialVersion: json['officialVersion'] as String? ?? '',
-        versionDate:
-            DateTime.tryParse(json['versionDate'] as String? ?? '') ??
-            DateTime(1970),
-        status: ProcessStatus.fromApi(json['status'] as String?),
-        revision: json['revision'] as int? ?? 0,
-      );
+  EvidenceExpectation copyWith({int? order}) {
+    return EvidenceExpectation(
+      id: id,
+      registryDefinitionId: registryDefinitionId,
+      displayName: displayName,
+      evidenceType: evidenceType,
+      applicability: applicability,
+      cardinality: cardinality,
+      location: location,
+      order: order ?? this.order,
+      officialNomenclature: officialNomenclature,
+    );
+  }
 }
 
 class ProcessPolicy {
-  const ProcessPolicy({this.id, required this.order, required this.text});
+  const ProcessPolicy({
+    required this.localKey,
+    required this.order,
+    required this.text,
+    this.id,
+  });
 
+  final String localKey;
   final String? id;
   final int order;
   final String text;
 
-  factory ProcessPolicy.fromJson(Map<String, dynamic> json) => ProcessPolicy(
-    id: json['id'] as String?,
-    order: json['order'] as int? ?? 0,
-    text: json['text'] as String? ?? '',
-  );
-
-  Map<String, dynamic> toJson() => {
-    if (id != null) 'id': id,
-    'order': order,
-    'text': text,
-  };
+  ProcessPolicy copyWith({String? text, int? order}) {
+    return ProcessPolicy(
+      localKey: localKey,
+      id: id,
+      order: order ?? this.order,
+      text: text ?? this.text,
+    );
+  }
 }
 
-class ActivityDraft {
-  const ActivityDraft({
-    this.id,
+class ProcessActivity {
+  const ProcessActivity({
+    required this.localKey,
     required this.name,
-    this.responsible,
+    required this.responsible,
     required this.instructions,
-    this.etaText,
+    required this.etaText,
     required this.order,
-    this.records = const [],
+    required this.records,
+    this.id,
   });
 
+  final String localKey;
   final String? id;
   final String name;
-  final String? responsible;
+  final String responsible;
   final String instructions;
-  final String? etaText;
+  final String etaText;
   final int order;
   final List<EvidenceExpectation> records;
 
-  factory ActivityDraft.fromJson(
-    Map<String, dynamic> json,
-    Map<String, RegistryDefinition> definitions,
-  ) => ActivityDraft(
-    id: json['id'] as String?,
-    name: json['name'] as String? ?? '',
-    responsible: json['responsible'] as String?,
-    instructions: json['instructions'] as String? ?? '',
-    etaText: json['etaText'] as String?,
-    order: json['order'] as int? ?? 0,
-    records: _readEvidence(json['records'], definitions),
-  );
-
-  Map<String, dynamic> toJson() => {
-    if (id != null) 'id': id,
-    'name': name,
-    if (responsible != null) 'responsible': responsible,
-    'instructions': instructions,
-    if (etaText != null) 'etaText': etaText,
-    'order': order,
-    'records': records.map((record) => record.toJson()).toList(),
-  };
-
-  ActivityDraft copyWith({List<EvidenceExpectation>? records}) => ActivityDraft(
-    id: id,
-    name: name,
-    responsible: responsible,
-    instructions: instructions,
-    etaText: etaText,
-    order: order,
-    records: records ?? this.records,
-  );
+  ProcessActivity copyWith({
+    String? name,
+    String? responsible,
+    String? instructions,
+    String? etaText,
+    int? order,
+    List<EvidenceExpectation>? records,
+  }) {
+    return ProcessActivity(
+      localKey: localKey,
+      id: id,
+      name: name ?? this.name,
+      responsible: responsible ?? this.responsible,
+      instructions: instructions ?? this.instructions,
+      etaText: etaText ?? this.etaText,
+      order: order ?? this.order,
+      records: records ?? this.records,
+    );
+  }
 }
 
-class MacroActivityDraft {
-  const MacroActivityDraft({
-    this.id,
+class ProcessMacroActivity {
+  const ProcessMacroActivity({
+    required this.localKey,
     required this.name,
-    this.description,
+    required this.description,
     required this.order,
-    this.inputs = const [],
-    this.activities = const [],
-    this.outputs = const [],
+    required this.inputs,
+    required this.activities,
+    required this.outputs,
+    this.id,
   });
 
+  final String localKey;
   final String? id;
   final String name;
-  final String? description;
+  final String description;
   final int order;
   final List<EvidenceExpectation> inputs;
-  final List<ActivityDraft> activities;
+  final List<ProcessActivity> activities;
   final List<EvidenceExpectation> outputs;
 
-  factory MacroActivityDraft.fromJson(
-    Map<String, dynamic> json,
-    Map<String, RegistryDefinition> definitions,
-  ) => MacroActivityDraft(
-    id: json['id'] as String?,
-    name: json['name'] as String? ?? '',
-    description: json['description'] as String?,
-    order: json['order'] as int? ?? 0,
-    inputs: _readEvidence(json['inputs'], definitions),
-    activities: _readMaps(
-      json['activities'],
-    ).map((item) => ActivityDraft.fromJson(item, definitions)).toList(),
-    outputs: _readEvidence(json['outputs'], definitions),
-  );
-
-  Map<String, dynamic> toJson() => {
-    if (id != null) 'id': id,
-    'name': name,
-    if (description != null) 'description': description,
-    'order': order,
-    'inputs': inputs.map((item) => item.toJson()).toList(),
-    'activities': activities.map((item) => item.toJson()).toList(),
-    'outputs': outputs.map((item) => item.toJson()).toList(),
-  };
-
-  MacroActivityDraft copyWith({
+  ProcessMacroActivity copyWith({
+    String? name,
+    String? description,
+    int? order,
     List<EvidenceExpectation>? inputs,
-    List<ActivityDraft>? activities,
+    List<ProcessActivity>? activities,
     List<EvidenceExpectation>? outputs,
-  }) => MacroActivityDraft(
-    id: id,
-    name: name,
-    description: description,
-    order: order,
-    inputs: inputs ?? this.inputs,
-    activities: activities ?? this.activities,
-    outputs: outputs ?? this.outputs,
-  );
+  }) {
+    return ProcessMacroActivity(
+      localKey: localKey,
+      id: id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      order: order ?? this.order,
+      inputs: inputs ?? this.inputs,
+      activities: activities ?? this.activities,
+      outputs: outputs ?? this.outputs,
+    );
+  }
 }
 
-class ProcessVersionDraft {
-  const ProcessVersionDraft({
+class ProcessVersion {
+  const ProcessVersion({
     required this.id,
     required this.processId,
     required this.officialVersion,
@@ -228,92 +295,69 @@ class ProcessVersionDraft {
     required this.owner,
     required this.policies,
     required this.macroActivities,
+    required this.createdAt,
+    this.publishedAt,
   });
 
   final String id;
   final String processId;
   final String officialVersion;
   final DateTime versionDate;
-  final ProcessStatus status;
+  final ProcessVersionStatus status;
   final int revision;
   final String objective;
   final String owner;
   final List<ProcessPolicy> policies;
-  final List<MacroActivityDraft> macroActivities;
+  final List<ProcessMacroActivity> macroActivities;
+  final DateTime? publishedAt;
+  final DateTime createdAt;
 
-  factory ProcessVersionDraft.fromJson(
-    Map<String, dynamic> json,
-    Map<String, RegistryDefinition> definitions,
-  ) => ProcessVersionDraft(
-    id: json['id'] as String,
-    processId: json['processId'] as String,
-    officialVersion: json['officialVersion'] as String? ?? '',
-    versionDate:
-        DateTime.tryParse(json['versionDate'] as String? ?? '') ??
-        DateTime(1970),
-    status: ProcessStatus.fromApi(json['status'] as String?),
-    revision: json['revision'] as int? ?? 0,
-    objective: json['objective'] as String? ?? '',
-    owner: json['owner'] as String? ?? '',
-    policies: _readMaps(json['policies']).map(ProcessPolicy.fromJson).toList(),
-    macroActivities: _readMaps(
-      json['macroActivities'],
-    ).map((item) => MacroActivityDraft.fromJson(item, definitions)).toList(),
-  );
-
-  Map<String, dynamic> toSaveJson() => {
-    'revision': revision,
-    'officialVersion': officialVersion,
-    'versionDate': _dateOnly(versionDate),
-    'objective': objective,
-    'owner': owner,
-    'policies': policies.map((item) => item.toJson()).toList(),
-    'macroActivities': macroActivities.map((item) => item.toJson()).toList(),
-  };
-
-  ProcessVersionDraft copyWith({
+  ProcessVersion copyWith({
+    String? officialVersion,
+    DateTime? versionDate,
     int? revision,
-    List<MacroActivityDraft>? macroActivities,
-  }) => ProcessVersionDraft(
-    id: id,
-    processId: processId,
-    officialVersion: officialVersion,
-    versionDate: versionDate,
-    status: status,
-    revision: revision ?? this.revision,
-    objective: objective,
-    owner: owner,
-    policies: policies,
-    macroActivities: macroActivities ?? this.macroActivities,
-  );
+    String? objective,
+    String? owner,
+    List<ProcessPolicy>? policies,
+    List<ProcessMacroActivity>? macroActivities,
+  }) {
+    return ProcessVersion(
+      id: id,
+      processId: processId,
+      officialVersion: officialVersion ?? this.officialVersion,
+      versionDate: versionDate ?? this.versionDate,
+      status: status,
+      revision: revision ?? this.revision,
+      objective: objective ?? this.objective,
+      owner: owner ?? this.owner,
+      policies: policies ?? this.policies,
+      macroActivities: macroActivities ?? this.macroActivities,
+      publishedAt: publishedAt,
+      createdAt: createdAt,
+    );
+  }
 }
 
-List<Map<String, dynamic>> _readMaps(Object? value) => value is List
-    ? value
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList()
-    : const [];
+class ProcessOverview {
+  const ProcessOverview({required this.definition, required this.versions});
 
-List<EvidenceExpectation> _readEvidence(
-  Object? value,
-  Map<String, RegistryDefinition> definitions,
-) => _readMaps(value).map((json) {
-  final definitionId = json['registryDefinitionId'] as String? ?? '';
-  final definition =
-      definitions[definitionId] ??
-      RegistryDefinition(
-        id: definitionId,
-        key: '',
-        canonicalName: json['displayName'] as String? ?? 'Registro',
-        evidenceType: EvidenceType.fromApi(json['evidenceType'] as String?),
-        officialNomenclature: json['officialNomenclature'] as String?,
-        preloaded: true,
-      );
-  return EvidenceExpectation.fromJson(json, registryDefinition: definition);
-}).toList();
+  final ProcessDefinition definition;
+  final List<ProcessVersion> versions;
 
-String _dateOnly(DateTime date) =>
-    '${date.year.toString().padLeft(4, '0')}-'
-    '${date.month.toString().padLeft(2, '0')}-'
-    '${date.day.toString().padLeft(2, '0')}';
+  ProcessVersion? get draftVersion {
+    final drafts = versions.where((version) => version.status.isDraft).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return drafts.isEmpty ? null : drafts.first;
+  }
+
+  ProcessVersion? get latestVersion {
+    if (versions.isEmpty) return null;
+    final sorted = [...versions]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sorted.first;
+  }
+
+  ProcessVersion? get versionToOpen => draftVersion ?? latestVersion;
+  bool get hasDraft => draftVersion != null;
+  bool get canStartFirstDraft => versions.isEmpty;
+}

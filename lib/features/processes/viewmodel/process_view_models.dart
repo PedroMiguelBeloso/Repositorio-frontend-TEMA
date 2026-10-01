@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/session_provider.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/network/api_exception_mapper.dart';
-import '../data/process_repository_provider.dart';
+import '../data/process_structure_repository_provider.dart';
 import '../model/evidence_expectation.dart';
-import '../model/process_models.dart';
+import '../model/process_structure_models.dart';
 
 final class ProcessListViewModel
     extends AsyncNotifier<List<ProcessDefinition>> {
@@ -17,7 +17,7 @@ final class ProcessListViewModel
   Future<List<ProcessDefinition>> _load() async {
     try {
       final result = await ref
-          .read(processRepositoryProvider)
+          .read(processStructureRepositoryProvider)
           .listProcesses(page: 0, size: 100);
       return result.items;
     } catch (error) {
@@ -54,7 +54,7 @@ final class ProcessDetailViewModel extends AsyncNotifier<ProcessDetailState> {
 
   @override
   Future<ProcessDetailState> build() async {
-    final repository = ref.read(processRepositoryProvider);
+    final repository = ref.read(processStructureRepositoryProvider);
     final process = await repository.getProcess(processId);
     final versions = await repository.listVersions(
       processId: processId,
@@ -119,7 +119,7 @@ final class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
 
   Future<ProcessEditorState> _load() async {
     final draft = await ref
-        .read(processRepositoryProvider)
+        .read(processStructureRepositoryProvider)
         .getVersion(processId: processId, versionId: versionId);
     final editorState = ProcessEditorState(
       draft: draft,
@@ -145,7 +145,7 @@ final class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
     required String query,
     required int page,
   }) => ref
-      .read(processRepositoryProvider)
+      .read(processStructureRepositoryProvider)
       .searchRegistry(query: query, page: page, size: 20);
 
   Future<RegistryDefinition> createRegistryDefinition({
@@ -159,7 +159,7 @@ final class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
       );
     }
     final created = await ref
-        .read(processRepositoryProvider)
+        .read(processStructureRepositoryProvider)
         .createRegistryDefinition(
           canonicalName: canonicalName,
           evidenceType: evidenceType,
@@ -315,7 +315,7 @@ final class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
     );
     try {
       final saved = await ref
-          .read(processRepositoryProvider)
+          .read(processStructureRepositoryProvider)
           .saveDraft(current.draft, current.definitions);
       _initialFingerprint = _fingerprint(saved);
       state = AsyncData(

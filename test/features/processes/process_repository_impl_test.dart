@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proyecto_tema_frontend/core/network/api_client.dart';
-import 'package:proyecto_tema_frontend/features/processes/data/process_repository_impl.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository_impl.dart';
 import 'package:proyecto_tema_frontend/features/processes/model/evidence_expectation.dart';
 
 void main() {
@@ -12,7 +12,7 @@ void main() {
     'searches catalog with query and pagination from the OpenAPI contract',
     () async {
       final adapter = _RegistryAdapter();
-      final repository = ProcessRepositoryImpl(_client(adapter));
+      final repository = ProcessStructureRepositoryImpl(_client(adapter));
 
       final result = await repository.searchRegistry(
         query: 'Ticket',
@@ -35,7 +35,7 @@ void main() {
     'creates only catalog fields and uses the server-generated key',
     () async {
       final adapter = _RegistryAdapter();
-      final repository = ProcessRepositoryImpl(_client(adapter));
+      final repository = ProcessStructureRepositoryImpl(_client(adapter));
 
       final created = await repository.createRegistryDefinition(
         canonicalName: 'Orden de transporte',

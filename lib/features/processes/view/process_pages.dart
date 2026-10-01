@@ -9,7 +9,7 @@ import '../../../core/errors/app_failure.dart';
 import '../../../core/widgets/async_content.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../model/evidence_expectation.dart';
-import '../model/process_models.dart';
+import '../model/process_structure_models.dart';
 import '../viewmodel/process_view_models.dart';
 import 'registry_catalog_dialog.dart';
 

@@ -1,39 +1,19 @@
-import '../model/evidence_expectation.dart';
 import '../model/process_models.dart';
 
 abstract interface class ProcessRepository {
-  Future<ProcessPage<ProcessDefinition>> listProcesses({
-    required int page,
-    required int size,
-  });
-
+  Future<List<ProcessDefinition>> listProcesses();
   Future<ProcessDefinition> getProcess(String processId);
+  Future<ProcessDefinition> createProcess(M1ProcessCode code);
 
-  Future<ProcessPage<ProcessVersionSummary>> listVersions({
+  Future<List<ProcessVersion>> listVersions(String processId);
+  Future<ProcessVersion> createDraftVersion({
     required String processId,
-    required int page,
-    required int size,
+    required String officialVersion,
+    required DateTime versionDate,
   });
-
-  Future<ProcessVersionDraft> getVersion({
+  Future<ProcessVersion> getVersion({
     required String processId,
     required String versionId,
   });
-
-  Future<ProcessVersionDraft> saveDraft(
-    ProcessVersionDraft draft,
-    List<RegistryDefinition> definitions,
-  );
-
-  Future<ProcessPage<RegistryDefinition>> searchRegistry({
-    required String query,
-    required int page,
-    required int size,
-  });
-
-  Future<RegistryDefinition> createRegistryDefinition({
-    required String canonicalName,
-    required EvidenceType evidenceType,
-    String? officialNomenclature,
-  });
+  Future<ProcessVersion> saveDraft(ProcessVersion version);
 }

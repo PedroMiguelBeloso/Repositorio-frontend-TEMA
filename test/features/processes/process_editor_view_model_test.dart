@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:proyecto_tema_frontend/core/auth/session.dart';
 import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
 import 'package:proyecto_tema_frontend/core/errors/app_failure.dart';
-import 'package:proyecto_tema_frontend/features/processes/data/process_repository.dart';
-import 'package:proyecto_tema_frontend/features/processes/data/process_repository_provider.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository_provider.dart';
 import 'package:proyecto_tema_frontend/features/processes/model/evidence_expectation.dart';
-import 'package:proyecto_tema_frontend/features/processes/model/process_models.dart';
+import 'package:proyecto_tema_frontend/features/processes/model/process_structure_models.dart';
 import 'package:proyecto_tema_frontend/features/processes/viewmodel/process_view_models.dart';
 
 void main() {
@@ -232,7 +232,7 @@ void main() {
       throwsA(isA<PermissionFailure>()),
     );
     expect(
-      (readerContainer.read(processRepositoryProvider)
+      (readerContainer.read(processStructureRepositoryProvider)
               as _FakeProcessRepository)
           .createRegistryCalls,
       0,
@@ -305,11 +305,11 @@ ProcessVersionDraft _makeDraft({
 );
 
 ProviderContainer _container(
-  ProcessRepository repository, {
+  ProcessStructureRepository repository, {
   UserRole role = UserRole.administrator,
 }) => ProviderContainer(
   overrides: [
-    processRepositoryProvider.overrideWithValue(repository),
+    processStructureRepositoryProvider.overrideWithValue(repository),
     sessionProvider.overrideWith(() => _TestSessionNotifier(role)),
   ],
 );
@@ -323,7 +323,7 @@ class _TestSessionNotifier extends SessionNotifier {
   Session? build() => Session(role: role);
 }
 
-class _FakeProcessRepository implements ProcessRepository {
+class _FakeProcessRepository implements ProcessStructureRepository {
   _FakeProcessRepository({ProcessVersionDraft? draft})
     : loadedDraft = draft ?? _makeDraft();
 
