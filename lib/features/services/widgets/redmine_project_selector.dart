@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../core/errors/app_failure.dart';
+import '../../../core/widgets/app_error_view.dart';
+import '../../../core/widgets/empty_state.dart';
 import '../model/service_models.dart';
 
 class RedmineProjectSelector extends StatelessWidget {
@@ -27,7 +30,7 @@ class RedmineProjectSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -35,12 +38,13 @@ class RedmineProjectSelector extends StatelessWidget {
               'Proyecto de Redmine',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             if (selectedId != null)
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(Icons.assignment_outlined),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text(selectedName ?? 'Proyecto seleccionado')),
                   IconButton(
                     tooltip: 'Quitar proyecto',
@@ -52,13 +56,10 @@ class RedmineProjectSelector extends StatelessWidget {
             else
               const Text('No hay un proyecto configurado.'),
             if (initialFailure case final failure?) ...[
-              const SizedBox(height: 8),
-              Text(
-                failure.message,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+              const SizedBox(height: AppSpacing.sm),
+              AppErrorView(failure: failure),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(
               onPressed: () async {
                 final selected = await showDialog<RedmineProjectOption>(
@@ -148,10 +149,12 @@ class _RedmineProjectDialogState extends State<_RedmineProjectDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Seleccionar proyecto de Redmine'),
-      content: SizedBox(
-        width: 600,
-        height: 380,
-        child: _content(context),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: SizedBox(
+          height: 380,
+          child: _content(context),
+        ),
       ),
       actions: [
         TextButton(
@@ -163,96 +166,84 @@ class _RedmineProjectDialogState extends State<_RedmineProjectDialog> {
   }
 
   Widget _content(BuildContext context) {
-  if (_loading) {
-    return const Center(
-      child: CircularProgressIndicator(),
-    );
-  }
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
 
-  if (_failure case final failure?) {
+    if (_failure case final failure?) {
+      return AppErrorView(
+        failure: failure,
+        onRetry: _load,
+      );
+    }
+
+    final result = _result!;
+
+    if (result.items.isEmpty) {
+      return const EmptyState(
+        message: 'No se encontraron proyectos visibles.',
+        icon: Icons.assignment_outlined,
+      );
+    }
+
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          failure.message,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.error,
+        Expanded(
+          child: RadioGroup<String>(
+            groupValue: widget.selectedId,
+            onChanged: (value) {
+              if (value == null) return;
+
+              final project = result.items.firstWhere(
+                (item) => item.id == value,
+              );
+
+              Navigator.of(context).pop(project);
+            },
+            child: ListView.separated(
+              itemCount: result.items.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final project = result.items[index];
+
+                return RadioListTile<String>(
+                  value: project.id,
+                  title: Text(project.name),
+                  subtitle: project.identifier == null
+                      ? null
+                      : Text(project.identifier!),
+                );
+              },
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _load,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Reintentar'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              'Página ${result.page.page + 1} de ${result.page.totalPages}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            IconButton(
+              onPressed: result.page.hasPrevious
+                  ? () => _load(page: result.page.page - 1)
+                  : null,
+              tooltip: 'Página anterior',
+              icon: const Icon(Icons.chevron_left),
+            ),
+            IconButton(
+              onPressed: result.page.hasNext
+                  ? () => _load(page: result.page.page + 1)
+                  : null,
+              tooltip: 'Página siguiente',
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
         ),
       ],
     );
   }
-
-  final result = _result!;
-
-  if (result.items.isEmpty) {
-    return const Center(
-      child: Text('No se encontraron proyectos visibles.'),
-    );
-  }
-
-  return Column(
-    children: [
-      Expanded(
-        child: RadioGroup<String>(
-          groupValue: widget.selectedId,
-          onChanged: (value) {
-            if (value == null) return;
-
-            final project = result.items.firstWhere(
-              (item) => item.id == value,
-            );
-
-            Navigator.of(context).pop(project);
-          },
-          child: ListView.separated(
-            itemCount: result.items.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final project = result.items[index];
-
-              return RadioListTile<String>(
-                value: project.id,
-                title: Text(project.name),
-                subtitle: project.identifier == null
-                    ? null
-                    : Text(project.identifier!),
-              );
-            },
-          ),
-        ),
-      ),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            'Página ${result.page.page + 1} de ${result.page.totalPages}',
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: result.page.hasPrevious
-                ? () => _load(page: result.page.page - 1)
-                : null,
-            tooltip: 'Página anterior',
-            icon: const Icon(Icons.chevron_left),
-          ),
-          IconButton(
-            onPressed: result.page.hasNext
-                ? () => _load(page: result.page.page + 1)
-                : null,
-            tooltip: 'Página siguiente',
-            icon: const Icon(Icons.chevron_right),
-          ),
-        ],
-      ),
-    ],
-  );
-}
 }

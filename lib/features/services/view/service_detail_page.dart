@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/route_names.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../core/auth/session_provider.dart';
-import '../../../core/errors/app_failure.dart';
+import '../../../core/widgets/async_content.dart';
+import '../../../core/widgets/status_chip.dart';
 import '../model/service_models.dart';
 import '../viewmodel/service_detail_view_model.dart';
 
@@ -17,6 +19,7 @@ class ServiceDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(serviceDetailViewModelProvider(serviceId));
     final isAdmin = ref.watch(sessionProvider)?.isAdmin == true;
+    final isCompact = MediaQuery.sizeOf(context).width < 700;
 
     return Scaffold(
       appBar: AppBar(
@@ -24,33 +27,31 @@ class ServiceDetailPage extends ConsumerWidget {
         actions: [
           if (isAdmin)
             Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: FilledButton.icon(
-                onPressed: () =>
-                    context.push(RouteNames.serviceEdit(serviceId)),
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('Editar'),
-              ),
+              padding: const EdgeInsets.only(right: AppSpacing.sm),
+              child: isCompact
+                  ? IconButton(
+                      tooltip: 'Editar',
+                      onPressed: () =>
+                          context.push(RouteNames.serviceEdit(serviceId)),
+                      icon: const Icon(Icons.edit_outlined),
+                    )
+                  : FilledButton.icon(
+                      onPressed: () =>
+                          context.push(RouteNames.serviceEdit(serviceId)),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Editar'),
+                    ),
             ),
         ],
       ),
-      body: state.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorState(
-          failure: _asFailure(error),
-          onRetry: () => ref.invalidate(
-            serviceDetailViewModelProvider(serviceId),
-          ),
+      body: AsyncContent<Service>(
+        value: state,
+        errorMessage: 'No se pudo cargar el detalle del servicio.',
+        onRetry: () => ref.invalidate(
+          serviceDetailViewModelProvider(serviceId),
         ),
-        data: (service) => _DetailContent(service: service),
+        builder: (service) => _DetailContent(service: service),
       ),
-    );
-  }
-
-  AppFailure _asFailure(Object error) {
-    if (error is AppFailure) return error;
-    return const UnexpectedFailure(
-      'No se pudo cargar el detalle del servicio.',
     );
   }
 }
@@ -62,20 +63,27 @@ class _DetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 960),
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          children: [
         _SectionCard(
           title: 'Datos del servicio',
           children: [
             _DetailRow(label: 'Nombre del servicio', value: service.name),
             _DetailRow(label: 'Cliente', value: service.client),
             _DetailRow(label: 'Tipo', value: service.serviceType.label),
-            _DetailRow(label: 'Estado', value: service.status.label),
+            _StatusDetailRow(
+              label: 'Estado',
+              status: service.status,
+            ),
             _DetailRow(label: 'Revisión', value: '${service.revision}'),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         _SectionCard(
           title: 'Procesos asignados',
           children: service.processes.isEmpty
@@ -94,7 +102,7 @@ class _DetailContent extends StatelessWidget {
                     ),
                 ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         _SectionCard(
           title: 'Fuentes de evidencia',
           children: [
@@ -114,12 +122,14 @@ class _DetailContent extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        const _InfoBanner(
-          text:
-              'Los cambios se usarán en las próximas verificaciones. Las verificaciones anteriores conservan su información.',
+        const SizedBox(height: AppSpacing.lg),
+            const _InfoBanner(
+              text:
+                  'Los cambios se usarán en las próximas verificaciones. Las verificaciones anteriores conservan su información.',
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -134,12 +144,12 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             ...children,
           ],
         ),
@@ -156,23 +166,99 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 180,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+    final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 560;
+
+        if (isCompact) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: labelStyle),
+                const SizedBox(height: AppSpacing.xs),
+                Text(value),
+              ],
             ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 180,
+                child: Text(label, style: labelStyle),
+              ),
+              Expanded(child: Text(value)),
+            ],
           ),
-          Expanded(child: Text(value)),
-        ],
+        );
+      },
+    );
+  }
+}
+
+class _StatusDetailRow extends StatelessWidget {
+  const _StatusDetailRow({required this.label, required this.status});
+
+  final String label;
+  final ServiceStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 560;
+          final statusChip = StatusChip(
+            label: status.label,
+            tone: _statusTone(status),
+          );
+
+          if (isCompact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: labelStyle),
+                const SizedBox(height: AppSpacing.xs),
+                statusChip,
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 180,
+                child: Text(label, style: labelStyle),
+              ),
+              statusChip,
+            ],
+          );
+        },
       ),
     );
   }
+
+  StatusTone _statusTone(ServiceStatus status) => switch (status) {
+    ServiceStatus.active => StatusTone.success,
+    ServiceStatus.inactive => StatusTone.neutral,
+    ServiceStatus.unknown => StatusTone.warning,
+  };
 }
 
 class _SourceRow extends StatelessWidget {
@@ -204,43 +290,17 @@ class _InfoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline),
-            const SizedBox(width: 10),
-            Expanded(child: Text(text)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.failure, required this.onRetry});
-
-  final AppFailure failure;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(failure.message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Reintentar'),
-            ),
+            Icon(Icons.info_outline, color: AppColors.info),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(text, style: theme.textTheme.bodyMedium)),
           ],
         ),
       ),

@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/route_names.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../core/auth/session_provider.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/widgets/async_content.dart';
+import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/status_chip.dart';
 import '../model/service_models.dart';
 import '../viewmodel/service_list_view_model.dart';
 
@@ -16,6 +19,7 @@ class ServiceListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(serviceListViewModelProvider);
     final isAdmin = ref.watch(sessionProvider)?.isAdmin == true;
+    final isCompact = MediaQuery.sizeOf(context).width < 700;
 
     return Scaffold(
       appBar: AppBar(
@@ -23,73 +27,76 @@ class ServiceListPage extends ConsumerWidget {
         actions: [
           if (isAdmin)
             Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: FilledButton.icon(
-                onPressed: () => context.push(RouteNames.servicesNewPath),
-                icon: const Icon(Icons.add),
-                label: const Text('Nuevo servicio'),
-              ),
+              padding: const EdgeInsets.only(right: AppSpacing.sm),
+              child: isCompact
+                  ? IconButton(
+                      tooltip: 'Nuevo servicio',
+                      onPressed: () =>
+                          context.push(RouteNames.servicesNewPath),
+                      icon: const Icon(Icons.add),
+                    )
+                  : FilledButton.icon(
+                      onPressed: () =>
+                          context.push(RouteNames.servicesNewPath),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Nuevo servicio'),
+                    ),
             ),
         ],
       ),
-      body: state.when(
-        loading: () => const AsyncContent(
-          isLoading: true,
-          child: SizedBox.shrink(),
-        ),
-        error: (error, _) => AsyncContent(
-          failure: _asFailure(error),
-          onRetry: () => ref.invalidate(serviceListViewModelProvider),
-          child: const SizedBox.shrink(),
-        ),
-        data: (data) {
+      body: AsyncContent<ServiceListState>(
+        value: state,
+        errorMessage: 'No se pudo cargar la lista de servicios.',
+        onRetry: () => ref.invalidate(serviceListViewModelProvider),
+        builder: (data) {
           if (data.items.isEmpty) {
             return _EmptyServices(isAdmin: isAdmin);
           }
 
-          return Column(
-            children: [
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () => ref
-                      .read(serviceListViewModelProvider.notifier)
-                      .refresh(),
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(24),
-                    itemCount: data.items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) => _ServiceCard(
-                      service: data.items[index],
-                      onOpen: () => context.push(
-                        RouteNames.serviceDetails(data.items[index].id),
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () => ref
+                          .read(serviceListViewModelProvider.notifier)
+                          .refresh(),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        itemCount: data.items.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: AppSpacing.md),
+                        itemBuilder: (context, index) => _ServiceCard(
+                          service: data.items[index],
+                          onOpen: () => context.push(
+                            RouteNames.serviceDetails(data.items[index].id),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  _PaginationBar(
+                    page: data.page,
+                    isLoading: data.isPaging,
+                    failure: data.pageFailure,
+                    onPrevious: () => ref
+                        .read(serviceListViewModelProvider.notifier)
+                        .previousPage(),
+                    onNext: () => ref
+                        .read(serviceListViewModelProvider.notifier)
+                        .nextPage(),
+                    onRetry: () =>
+                        ref.invalidate(serviceListViewModelProvider),
+                  ),
+                ],
               ),
-              _PaginationBar(
-                page: data.page,
-                isLoading: data.isPaging,
-                failure: data.pageFailure,
-                onPrevious: () => ref
-                    .read(serviceListViewModelProvider.notifier)
-                    .previousPage(),
-                onNext: () => ref
-                    .read(serviceListViewModelProvider.notifier)
-                    .nextPage(),
-                onRetry: () => ref.invalidate(serviceListViewModelProvider),
-              ),
-            ],
+            ),
           );
         },
       ),
-    );
-  }
-
-  AppFailure _asFailure(Object error) {
-    if (error is AppFailure) return error;
-    return const UnexpectedFailure(
-      'No se pudo cargar la lista de servicios.',
     );
   }
 }
@@ -102,48 +109,91 @@ class _ServiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = service.status == ServiceStatus.active
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.outline;
+    final theme = Theme.of(context);
 
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      service.name,
-                      style: Theme.of(context).textTheme.titleLarge,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 620;
+        final status = StatusChip(
+          label: service.status.label,
+          tone: _statusTone(service.status),
+        );
+        final openAction = IconButton(
+          tooltip: 'Ver detalle',
+          onPressed: onOpen,
+          icon: const Icon(Icons.chevron_right),
+        );
+
+        return Card(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            onTap: onOpen,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: isCompact
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ServiceSummary(service: service, theme: theme),
+                        const SizedBox(height: AppSpacing.md),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            status,
+                            openAction,
+                          ],
+                        ),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _ServiceSummary(
+                            service: service,
+                            theme: theme,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        status,
+                        const SizedBox(width: AppSpacing.sm),
+                        openAction,
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text('Cliente: ${service.client}'),
-                    const SizedBox(height: 4),
-                    Text('Tipo: ${service.serviceType.label}'),
-                  ],
-                ),
-              ),
-              Chip(
-                avatar: Icon(Icons.circle, size: 10, color: statusColor),
-                label: Text(service.status.label),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: 'Ver detalle',
-                onPressed: onOpen,
-                icon: const Icon(Icons.chevron_right),
-              ),
-            ],
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  StatusTone _statusTone(ServiceStatus status) => switch (status) {
+    ServiceStatus.active => StatusTone.success,
+    ServiceStatus.inactive => StatusTone.neutral,
+    ServiceStatus.unknown => StatusTone.warning,
+  };
+}
+
+class _ServiceSummary extends StatelessWidget {
+  const _ServiceSummary({required this.service, required this.theme});
+
+  final Service service;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          service.name,
+          style: theme.textTheme.titleLarge,
         ),
-      ),
+        const SizedBox(height: AppSpacing.sm),
+        Text('Cliente: ${service.client}'),
+        const SizedBox(height: AppSpacing.xs),
+        Text('Tipo: ${service.serviceType.label}'),
+      ],
     );
   }
 }
@@ -159,11 +209,12 @@ class _EmptyServices extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.miscellaneous_services_outlined, size: 48),
-          const SizedBox(height: 12),
-          const Text('No hay servicios configurados.'),
+          const EmptyState(
+            message: 'No hay servicios configurados.',
+            icon: Icons.miscellaneous_services_outlined,
+          ),
           if (isAdmin) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             FilledButton.icon(
               onPressed: () => context.push(RouteNames.servicesNewPath),
               icon: const Icon(Icons.add),
@@ -195,23 +246,44 @@ class _PaginationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        0,
+        AppSpacing.xl,
+        AppSpacing.lg,
+      ),
       child: Column(
         children: [
           if (failure case final error?) ...[
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(child: Text(error.message)),
-                TextButton(onPressed: onRetry, child: const Text('Reintentar')),
+                Expanded(
+                  child: Text(
+                    error.message,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                TextButton(
+                  onPressed: onRetry,
+                  child: const Text('Reintentar'),
+                ),
               ],
             ),
+            const SizedBox(height: AppSpacing.xs),
           ],
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text('Página ${page.page + 1} de ${page.totalPages}'),
-              const SizedBox(width: 8),
+              Text(
+                'Página ${page.page + 1} de ${page.totalPages}',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(width: AppSpacing.xs),
               IconButton(
                 onPressed: isLoading || !page.hasPrevious ? null : onPrevious,
                 tooltip: 'Página anterior',

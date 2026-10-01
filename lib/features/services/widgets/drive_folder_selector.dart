@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../core/errors/app_failure.dart';
+import '../../../core/widgets/app_error_view.dart';
+import '../../../core/widgets/empty_state.dart';
 import '../model/service_models.dart';
 
 class DriveFolderSelector extends StatelessWidget {
@@ -28,7 +31,7 @@ class DriveFolderSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -36,13 +39,13 @@ class DriveFolderSelector extends StatelessWidget {
               'Carpeta de evidencia en Google Drive',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             if (selectedId != null) ...[
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(Icons.folder_outlined),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(selectedName ?? 'Carpeta seleccionada'),
                   ),
@@ -56,10 +59,10 @@ class DriveFolderSelector extends StatelessWidget {
             ] else
               const Text('No hay una carpeta configurada.'),
             if (initialFailure case final failure?) ...[
-              const SizedBox(height: 8),
-              _SourceFailure(message: failure.message),
+              const SizedBox(height: AppSpacing.sm),
+              AppErrorView(failure: failure),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(
               onPressed: () async {
                 final selected = await showDialog<DriveFolderOption>(
@@ -158,25 +161,27 @@ class _DriveFolderDialogState extends State<_DriveFolderDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Seleccionar carpeta de Google Drive'),
-      content: SizedBox(
-        width: 600,
-        height: 430,
-        child: Column(
-          children: [
-            TextField(
-              controller: _queryController,
-              decoration: InputDecoration(
-                labelText: 'Buscar carpeta',
-                suffixIcon: IconButton(
-                  onPressed: () => _load(page: 0),
-                  icon: const Icon(Icons.search),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: SizedBox(
+          height: 430,
+          child: Column(
+            children: [
+              TextField(
+                controller: _queryController,
+                decoration: InputDecoration(
+                  labelText: 'Buscar carpeta',
+                  suffixIcon: IconButton(
+                    onPressed: () => _load(page: 0),
+                    icon: const Icon(Icons.search),
+                  ),
                 ),
+                onSubmitted: (_) => _load(page: 0),
               ),
-              onSubmitted: (_) => _load(page: 0),
-            ),
-            const SizedBox(height: 12),
-            Expanded(child: _content(context)),
-          ],
+              const SizedBox(height: AppSpacing.md),
+              Expanded(child: _content(context)),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -188,103 +193,83 @@ class _DriveFolderDialogState extends State<_DriveFolderDialog> {
     );
   }
 
- Widget _content(BuildContext context) {
-  if (_loading) {
-    return const Center(
-      child: CircularProgressIndicator(),
-    );
-  }
+  Widget _content(BuildContext context) {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
 
-  if (_failure case final failure?) {
+    if (_failure case final failure?) {
+      return AppErrorView(
+        failure: failure,
+        onRetry: _load,
+      );
+    }
+
+    final result = _result!;
+
+    if (result.items.isEmpty) {
+      return const EmptyState(
+        message: 'No se encontraron carpetas accesibles.',
+        icon: Icons.folder_outlined,
+      );
+    }
+
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _SourceFailure(message: failure.message),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _load,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Reintentar'),
+        Expanded(
+          child: RadioGroup<String>(
+            groupValue: widget.selectedId,
+            onChanged: (value) {
+              if (value == null) return;
+
+              final folder = result.items.firstWhere(
+                (item) => item.id == value,
+              );
+
+              Navigator.of(context).pop(folder);
+            },
+            child: ListView.separated(
+              itemCount: result.items.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final folder = result.items[index];
+
+                return RadioListTile<String>(
+                  value: folder.id,
+                  title: Text(folder.name),
+                  subtitle: Text(folder.path),
+                );
+              },
+            ),
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              'Página ${result.page.page + 1} de ${result.page.totalPages}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            IconButton(
+              onPressed: result.page.hasPrevious
+                  ? () => _load(page: result.page.page - 1)
+                  : null,
+              tooltip: 'Página anterior',
+              icon: const Icon(Icons.chevron_left),
+            ),
+            IconButton(
+              onPressed: result.page.hasNext
+                  ? () => _load(page: result.page.page + 1)
+                  : null,
+              tooltip: 'Página siguiente',
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
         ),
       ],
-    );
-  }
-
-  final result = _result!;
-
-  if (result.items.isEmpty) {
-    return const Center(
-      child: Text('No se encontraron carpetas accesibles.'),
-    );
-  }
-
-  return Column(
-    children: [
-      Expanded(
-        child: RadioGroup<String>(
-          groupValue: widget.selectedId,
-          onChanged: (value) {
-            if (value == null) return;
-
-            final folder = result.items.firstWhere(
-              (item) => item.id == value,
-            );
-
-            Navigator.of(context).pop(folder);
-          },
-          child: ListView.separated(
-            itemCount: result.items.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final folder = result.items[index];
-
-              return RadioListTile<String>(
-                value: folder.id,
-                title: Text(folder.name),
-                subtitle: Text(folder.path),
-              );
-            },
-          ),
-        ),
-      ),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            'Página ${result.page.page + 1} de ${result.page.totalPages}',
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: result.page.hasPrevious
-                ? () => _load(page: result.page.page - 1)
-                : null,
-            tooltip: 'Página anterior',
-            icon: const Icon(Icons.chevron_left),
-          ),
-          IconButton(
-            onPressed: result.page.hasNext
-                ? () => _load(page: result.page.page + 1)
-                : null,
-            tooltip: 'Página siguiente',
-            icon: const Icon(Icons.chevron_right),
-          ),
-        ],
-      ),
-    ],
-  );
-}
-}
-
-class _SourceFailure extends StatelessWidget {
-  const _SourceFailure({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      message,
-      style: TextStyle(color: Theme.of(context).colorScheme.error),
     );
   }
 }

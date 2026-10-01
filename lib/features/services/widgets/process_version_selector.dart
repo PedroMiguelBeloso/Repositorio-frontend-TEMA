@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../model/service_models.dart';
 
 class ProcessVersionSelector extends StatelessWidget {
@@ -22,7 +23,7 @@ class ProcessVersionSelector extends StatelessWidget {
       children: [
         for (final group in groups) ...[
           _buildGroup(context, group),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
         ],
       ],
     );
@@ -46,7 +47,7 @@ class ProcessVersionSelector extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -54,7 +55,7 @@ class ProcessVersionSelector extends StatelessWidget {
               group.process.name,
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             DropdownButtonFormField<String>(
               initialValue: selected?.id,
               decoration: const InputDecoration(
@@ -75,11 +76,12 @@ class ProcessVersionSelector extends StatelessWidget {
               },
             ),
             if (selected != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Icon(Icons.check_circle_outline, size: 18),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.xs),
                   Expanded(
                     child: Text(
                       'Asignada: versión ${selected.officialVersion}',
