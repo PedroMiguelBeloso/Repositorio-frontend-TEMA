@@ -6,6 +6,7 @@ import 'package:proyecto_tema_frontend/app/router/app_router.dart';
 import 'package:proyecto_tema_frontend/app/router/route_names.dart';
 import 'package:proyecto_tema_frontend/core/auth/session.dart';
 import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
+import 'package:proyecto_tema_frontend/features/processes/viewmodel/process_list_view_model.dart';
 import 'package:proyecto_tema_frontend/features/services/model/service_models.dart';
 import 'package:proyecto_tema_frontend/features/services/viewmodel/service_list_view_model.dart';
 
@@ -16,23 +17,27 @@ void main() {
       session: const Session(role: UserRole.administrator),
     );
     final router = container.read(appRouterProvider);
-    const routes = <(String, String)>[
-      (RouteNames.homePath, 'Inicio'),
-      (RouteNames.processesPath, 'Procesos'),
-      ('/processes/process-42', 'Detalle del proceso'),
-      ('/processes/process-42/history', 'Historial del proceso'),
-      (RouteNames.verificationsPath, 'Verificaciones'),
-      (RouteNames.newVerificationPath, 'Nueva verificación'),
-      ('/verifications/run-42', 'Detalle de verificación'),
-      ('/verifications/run-42/results', 'Resultados de verificación'),
-      (RouteNames.integrationsPath, 'Integraciones'),
+    const routes = <(String, String, bool)>[
+      (RouteNames.homePath, 'Inicio', true),
+      (RouteNames.processesPath, 'Procesos', false),
+      ('/processes/process-42', 'Detalle del proceso', true),
+      ('/processes/process-42/history', 'Historial del proceso', true),
+      (RouteNames.verificationsPath, 'Verificaciones', true),
+      (RouteNames.newVerificationPath, 'Nueva verificación', true),
+      ('/verifications/run-42', 'Detalle de verificación', true),
+      ('/verifications/run-42/results', 'Resultados de verificación', true),
+      (RouteNames.integrationsPath, 'Integraciones', true),
     ];
 
-    for (final (path, title) in routes) {
+    for (final (path, title, isPlaceholder) in routes) {
       router.go(path);
       await tester.pumpAndSettle();
       expect(find.text(title), findsAtLeastNWidgets(1), reason: path);
-      expect(find.text('Funcionalidad en desarrollo'), findsOneWidget);
+      expect(
+        find.text('Funcionalidad en desarrollo'),
+        isPlaceholder ? findsOneWidget : findsNothing,
+        reason: path,
+      );
     }
   });
 
@@ -323,6 +328,7 @@ Future<ProviderContainer> _pumpApp(
     ProviderScope(
       overrides: [
         sessionProvider.overrideWith(() => _TestSessionNotifier(session)),
+        processListViewModelProvider.overrideWith(_TestProcessListViewModel.new),
         serviceListViewModelProvider.overrideWith(_TestServiceListViewModel.new),
       ],
       child: const App(),
@@ -330,6 +336,12 @@ Future<ProviderContainer> _pumpApp(
   );
   await tester.pumpAndSettle();
   return ProviderScope.containerOf(tester.element(find.byType(App)));
+}
+
+class _TestProcessListViewModel extends ProcessListViewModel {
+  @override
+  Future<ProcessListState> build() async =>
+      const ProcessListState(items: []);
 }
 
 class _TestServiceListViewModel extends ServiceListViewModel {
