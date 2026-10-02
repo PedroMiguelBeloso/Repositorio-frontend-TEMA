@@ -1,5 +1,3 @@
-import 'package:dio/dio.dart';
-
 import '../../../core/errors/app_failure.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception_mapper.dart';
@@ -55,12 +53,10 @@ class IntegrationsRepositoryImpl implements IntegrationsRepository {
   Future<T> _guard<T>(Future<T> Function() operation, String message) async {
     try {
       return await operation();
-    } on DioException catch (error) {
-      throw _exceptionMapper.map(error);
     } on AppFailure {
       rethrow;
-    } catch (_) {
-      throw UnexpectedFailure(message);
+    } catch (error) {
+      throw _exceptionMapper.mapError(error, fallbackMessage: message);
     }
   }
 }
