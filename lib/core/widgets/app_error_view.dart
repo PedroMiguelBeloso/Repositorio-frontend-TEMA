@@ -24,7 +24,7 @@ class AppErrorView extends StatelessWidget {
             Text(failure.message, textAlign: TextAlign.center),
             if (onRetry != null) ...[
               const SizedBox(height: AppSpacing.lg),
-              FilledButton.icon(
+              OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Reintentar'),
