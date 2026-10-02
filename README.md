@@ -226,11 +226,6 @@ No issues found! (ran in 4.1s)
 `flutter test`:
 
 ```text
-00:02 +0: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: adds the current session token as a Bearer header
-[HTTP] GET /api/v1/private-resource status=200 duration=17ms
-00:02 +1: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: does not add an Authorization header without a session token
-[HTTP] GET /api/v1/public-resource status=200 duration=0ms
-00:15 +91: C:/dev/proyecto_tema_frontend/test/widget_test.dart: all configured authenticated routes resolve
 00:18 +110: All tests passed!
 ```
 
