@@ -315,24 +315,26 @@ class ProcessVersion {
   ProcessVersion copyWith({
     String? officialVersion,
     DateTime? versionDate,
+    ProcessVersionStatus? status,
     int? revision,
     String? objective,
     String? owner,
     List<ProcessPolicy>? policies,
     List<ProcessMacroActivity>? macroActivities,
+    DateTime? publishedAt,
   }) {
     return ProcessVersion(
       id: id,
       processId: processId,
       officialVersion: officialVersion ?? this.officialVersion,
       versionDate: versionDate ?? this.versionDate,
-      status: status,
+      status: status ?? this.status,
       revision: revision ?? this.revision,
       objective: objective ?? this.objective,
       owner: owner ?? this.owner,
       policies: policies ?? this.policies,
       macroActivities: macroActivities ?? this.macroActivities,
-      publishedAt: publishedAt,
+      publishedAt: publishedAt ?? this.publishedAt,
       createdAt: createdAt,
     );
   }

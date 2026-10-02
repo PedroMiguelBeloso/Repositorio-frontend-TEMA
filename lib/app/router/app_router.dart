@@ -12,6 +12,7 @@ import '../../features/users/view/create_reader_page.dart';
 import '../../features/users/view/users_page.dart';
 import '../../features/processes/view/process_pages.dart';
 import '../../features/processes/view/process_editor_page.dart' as m1_editor;
+import '../../features/processes/view/process_version_history_page.dart' as m1_history;
 import '../../features/processes/view/process_list_page.dart' as m1_list;
 import '../../features/processes/viewmodel/process_editor_view_model.dart'
   as m1_editor_vm;
@@ -87,7 +88,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.processHistoryName,
             path: RouteNames.processHistoryPath,
             builder: (context, state) =>
-                ProcessHistoryPage(processId: state.pathParameters['id']!),
+                m1_history.ProcessVersionHistoryPage(
+                  processId: state.pathParameters['id']!,
+                ),
           ),
           GoRoute(
             name: RouteNames.processStructureName,

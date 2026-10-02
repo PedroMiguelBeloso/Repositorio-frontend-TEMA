@@ -2,11 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/session_provider.dart';
 import '../../../core/errors/app_failure.dart';
 import '../data/dto/process_dtos.dart';
 import '../data/process_repository_provider.dart';
 import '../model/process_models.dart';
+import 'process_history_view_model.dart';
 import 'process_list_view_model.dart';
+import 'process_view_models.dart' as legacy_process;
 
 typedef ProcessEditorKey = ({String processId, String versionId});
 
@@ -46,7 +49,9 @@ class ProcessEditorState {
     this.validationErrors = const {},
     this.actionFailure,
     this.isSaving = false,
+    this.isPublishing = false,
     this.saveSucceeded = false,
+    this.validationSummary = const [],
   });
 
   final ProcessDefinition definition;
@@ -55,7 +60,9 @@ class ProcessEditorState {
   final Map<String, String> validationErrors;
   final AppFailure? actionFailure;
   final bool isSaving;
+  final bool isPublishing;
   final bool saveSucceeded;
+  final List<String> validationSummary;
 
   ProcessMacroActivity? get selectedMacroActivity {
     final selection = selectedNode;
@@ -86,7 +93,9 @@ class ProcessEditorState {
     AppFailure? actionFailure,
     bool clearActionFailure = false,
     bool? isSaving,
+    bool? isPublishing,
     bool? saveSucceeded,
+    List<String>? validationSummary,
   }) {
     return ProcessEditorState(
       definition: definition,
@@ -99,7 +108,9 @@ class ProcessEditorState {
       actionFailure:
           clearActionFailure ? null : actionFailure ?? this.actionFailure,
       isSaving: isSaving ?? this.isSaving,
+      isPublishing: isPublishing ?? this.isPublishing,
       saveSucceeded: saveSucceeded ?? this.saveSucceeded,
+      validationSummary: validationSummary ?? this.validationSummary,
     );
   }
 }
@@ -436,7 +447,9 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
 
   Future<bool> save() async {
     final current = state.value;
-    if (current == null || current.isSaving) return false;
+    if (current == null || current.isSaving || current.isPublishing) {
+      return false;
+    }
 
     if (!current.version.status.isDraft) {
       state = AsyncData(
@@ -469,6 +482,7 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
         isSaving: true,
         clearActionFailure: true,
         clearValidationErrors: true,
+        validationSummary: const [],
         saveSucceeded: false,
       ),
     );
@@ -479,6 +493,8 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
           );
       _initialFingerprint = _fingerprint(saved);
       ref.invalidate(processListViewModelProvider);
+      ref.invalidate(processHistoryViewModelProvider(key.processId));
+      ref.invalidate(legacy_process.processDetailViewModelProvider(key.processId));
       final selection = _selectionAfterSave(current.selectedNode, saved);
       state = AsyncData(
         current.copyWith(
@@ -488,6 +504,7 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
           isSaving: false,
           clearActionFailure: true,
           clearValidationErrors: true,
+          validationSummary: const [],
           saveSucceeded: true,
         ),
       );
@@ -498,6 +515,10 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
         latest.copyWith(
           isSaving: false,
           validationErrors: _mapBackendFieldErrors(
+            failure.fieldErrors,
+            current.version,
+          ),
+          validationSummary: _unmappedBackendFieldErrors(
             failure.fieldErrors,
             current.version,
           ),
@@ -531,6 +552,113 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
     }
   }
 
+  Future<bool> publish() async {
+    final current = state.value;
+    if (current == null || current.isSaving || current.isPublishing) {
+      return false;
+    }
+    if (ref.read(sessionProvider)?.isAdmin != true) {
+      state = AsyncData(
+        current.copyWith(
+          actionFailure: const PermissionFailure(
+            'Solo un Administrador puede publicar versiones.',
+          ),
+        ),
+      );
+      return false;
+    }
+    if (!current.version.status.isDraft) {
+      state = AsyncData(
+        current.copyWith(
+          actionFailure: const PermissionFailure(
+            'Esta versión está en modo consulta y no puede publicarse.',
+          ),
+        ),
+      );
+      return false;
+    }
+    if (hasUnsavedChanges) {
+      state = AsyncData(
+        current.copyWith(
+          actionFailure: const ValidationFailure(
+            'Guardá los cambios antes de publicar esta versión.',
+          ),
+        ),
+      );
+      return false;
+    }
+
+    state = AsyncData(
+      current.copyWith(
+        isPublishing: true,
+        clearActionFailure: true,
+        clearValidationErrors: true,
+        validationSummary: const [],
+        saveSucceeded: false,
+      ),
+    );
+
+    try {
+      final published = await ref.read(processRepositoryProvider).publishVersion(
+            processId: key.processId,
+            versionId: key.versionId,
+            revision: current.version.revision,
+          );
+      _initialFingerprint = _fingerprint(published);
+      ref.invalidate(processListViewModelProvider);
+      ref.invalidate(processHistoryViewModelProvider(key.processId));
+      ref.invalidate(legacy_process.processDetailViewModelProvider(key.processId));
+      final selection = _selectionAfterSave(current.selectedNode, published);
+      state = AsyncData(
+        current.copyWith(
+          version: published,
+          selectedNode: selection,
+          clearSelectedNode: selection == null,
+          isPublishing: false,
+          clearActionFailure: true,
+          clearValidationErrors: true,
+          validationSummary: const [],
+          saveSucceeded: false,
+        ),
+      );
+      return true;
+    } on ValidationFailure catch (failure) {
+      final latest = state.value ?? current;
+      state = AsyncData(
+        latest.copyWith(
+          isPublishing: false,
+          validationErrors: _mapBackendFieldErrors(
+            failure.fieldErrors,
+            current.version,
+          ),
+          validationSummary: _unmappedBackendFieldErrors(
+            failure.fieldErrors,
+            current.version,
+          ),
+          actionFailure: failure,
+        ),
+      );
+      return false;
+    } on AppFailure catch (failure) {
+      final latest = state.value ?? current;
+      state = AsyncData(
+        latest.copyWith(isPublishing: false, actionFailure: failure),
+      );
+      return false;
+    } catch (_) {
+      final latest = state.value ?? current;
+      state = AsyncData(
+        latest.copyWith(
+          isPublishing: false,
+          actionFailure: const UnexpectedFailure(
+            'No se pudo publicar la versión. El borrador se conservó; intentá nuevamente.',
+          ),
+        ),
+      );
+      return false;
+    }
+  }
+
   Future<void> reloadFromServer() async {
     state = const AsyncLoading();
     _initialFingerprint = null;
@@ -540,7 +668,13 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
   void clearActionFailure() {
     final current = state.value;
     if (current == null) return;
-    state = AsyncData(current.copyWith(clearActionFailure: true));
+    state = AsyncData(
+      current.copyWith(
+        clearActionFailure: true,
+        clearValidationErrors: true,
+        validationSummary: const [],
+      ),
+    );
   }
 
   void _updateVersion(
@@ -549,7 +683,10 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
     bool clearSelectedNode = false,
   }) {
     final current = state.value;
-    if (current == null || current.isSaving || !current.version.status.isDraft) {
+    if (current == null ||
+      current.isSaving ||
+      current.isPublishing ||
+      !current.version.status.isDraft) {
       return;
     }
 
@@ -560,6 +697,7 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
         clearSelectedNode: clearSelectedNode,
         clearActionFailure: true,
         clearValidationErrors: true,
+        validationSummary: const [],
         saveSucceeded: false,
       ),
     );
@@ -683,6 +821,15 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
 
     return mapped;
   }
+
+  List<String> _unmappedBackendFieldErrors(
+    Map<String, String> fieldErrors,
+    ProcessVersion version,
+  ) => [
+    for (final entry in fieldErrors.entries)
+      if (_mapBackendFieldErrors({entry.key: entry.value}, version).isEmpty)
+        '${entry.key}: ${entry.value}',
+  ];
 
   String _fingerprint(ProcessVersion version) {
     return jsonEncode(SaveDraftRequestDto(version: version).toJson());

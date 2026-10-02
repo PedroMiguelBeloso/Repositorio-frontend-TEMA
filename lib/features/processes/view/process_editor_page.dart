@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../core/auth/session_provider.dart';
@@ -66,6 +67,7 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
   ) {
     final session = ref.watch(sessionProvider);
     final canEdit = session?.isAdmin == true && state.version.status.isDraft;
+    final isBusy = state.isSaving || state.isPublishing;
     final notifier = ref.read(processEditorViewModelProvider(_providerKey).notifier);
 
     return DefaultTabController(
@@ -73,24 +75,14 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(state.definition.displayName),
-          actions: [
-            if (canEdit) ...[
-              FilledButton.icon(
-                onPressed: state.isSaving || !dirty
-                    ? null
-                    : () => notifier.save(),
-                icon: state.isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(state.isSaving ? 'Guardando...' : 'Guardar'),
-              ),
-              const SizedBox(width: AppSpacing.lg),
-            ],
-          ],
+          actions: canEdit
+              ? _editorActions(
+                  context,
+                  state: state,
+                  dirty: dirty,
+                  notifier: notifier,
+                )
+              : null,
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Datos generales'),
@@ -113,6 +105,7 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
                 onReload: state.actionFailure is ConflictFailure
                     ? () => _reloadAfterConflict(context, notifier)
                     : null,
+                validationSummary: state.validationSummary,
               ),
             if (state.saveSucceeded)
               const _SuccessBanner(
@@ -124,7 +117,7 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
                   GeneralDataSection(
                     definition: state.definition,
                     version: state.version,
-                    readOnly: !canEdit,
+                    readOnly: !canEdit || isBusy,
                     validationErrors: state.validationErrors,
                     onOfficialVersionChanged: notifier.updateOfficialVersion,
                     onVersionDateChanged: notifier.updateVersionDate,
@@ -133,7 +126,7 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
                   ),
                   PoliciesSection(
                     policies: state.version.policies,
-                    readOnly: !canEdit,
+                    readOnly: !canEdit || isBusy,
                     validationErrors: state.validationErrors,
                     onAdd: notifier.addPolicy,
                     onTextChanged: notifier.updatePolicyText,
@@ -142,7 +135,7 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
                   ),
                   _StructureTab(
                     state: state,
-                    readOnly: !canEdit,
+                    readOnly: !canEdit || isBusy,
                     onSelectMacro: notifier.selectMacroActivity,
                     onSelectActivity: notifier.selectActivity,
                     onAddMacro: notifier.addMacroActivity,
@@ -175,6 +168,134 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
           ],
         ),
       ),
+    );
+  }
+
+  List<Widget> _editorActions(
+    BuildContext context, {
+    required ProcessEditorState state,
+    required bool dirty,
+    required ProcessEditorViewModel notifier,
+  }) {
+    final busy = state.isSaving || state.isPublishing;
+    final compact = MediaQuery.sizeOf(context).width < 620;
+    if (compact) {
+      return [
+        IconButton(
+          tooltip: 'Guardar borrador',
+          onPressed: busy || !dirty ? null : () => notifier.save(),
+          icon: state.isSaving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_outlined),
+        ),
+        IconButton(
+          tooltip: 'Publicar versión',
+          onPressed: busy ? null : () => _confirmPublish(context, notifier),
+          icon: state.isPublishing
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.publish_outlined),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+      ];
+    }
+    return [
+      OutlinedButton.icon(
+        onPressed: busy || !dirty ? null : () => notifier.save(),
+        icon: state.isSaving
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.save_outlined),
+        label: Text(state.isSaving ? 'Guardando...' : 'Guardar'),
+      ),
+      const SizedBox(width: AppSpacing.sm),
+      FilledButton.icon(
+        onPressed: busy ? null : () => _confirmPublish(context, notifier),
+        icon: state.isPublishing
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.publish_outlined),
+        label: Text(state.isPublishing ? 'Publicando...' : 'Publicar versión'),
+      ),
+      const SizedBox(width: AppSpacing.lg),
+    ];
+  }
+
+  Future<void> _confirmPublish(
+    BuildContext context,
+    ProcessEditorViewModel notifier,
+  ) async {
+    if (notifier.hasUnsavedChanges) {
+      final saveFirst = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Guardar antes de publicar'),
+          content: const Text(
+            'Hay cambios sin guardar. La publicación debe usar la última '
+            'revisión guardada del borrador.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Guardar cambios'),
+            ),
+          ],
+        ),
+      );
+      if (saveFirst != true || !context.mounted) return;
+      if (!await notifier.save() || !context.mounted) return;
+    }
+
+    final current = ref.read(processEditorViewModelProvider(_providerKey)).value;
+    if (current == null || !context.mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Publicar versión'),
+        content: Text(
+          '${current.definition.displayName}, versión '
+          '${current.version.officialVersion}. Después de publicar, esta '
+          'versión quedará disponible solo para consulta.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Publicar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final published = await notifier.publish();
+    if (!published || !context.mounted) return;
+    final publishedAt = ref
+        .read(processEditorViewModelProvider(_providerKey))
+        .value
+        ?.version
+        .publishedAt;
+    final date = publishedAt == null
+        ? ''
+        : ' · ${DateFormat('dd/MM/yyyy HH:mm').format(publishedAt)}';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Publicada$date')),
     );
   }
 
@@ -284,10 +405,18 @@ class _EditorHeader extends StatelessWidget {
               ),
               StatusChip(
                 label: state.version.status.label,
-                tone: state.version.status.isDraft
-                    ? StatusTone.warning
-                    : StatusTone.info,
+                tone: switch (state.version.status) {
+                  ProcessVersionStatus.draft => StatusTone.warning,
+                  ProcessVersionStatus.published => StatusTone.success,
+                  ProcessVersionStatus.archived => StatusTone.neutral,
+                  ProcessVersionStatus.unknown => StatusTone.neutral,
+                },
               ),
+              if (state.version.publishedAt != null)
+                Text(
+                  'Publicada el ${DateFormat('dd/MM/yyyy HH:mm').format(state.version.publishedAt!)}',
+                  style: theme.textTheme.bodyMedium,
+                ),
               if (dirty && canEdit)
                 const StatusChip(
                   label: 'Cambios sin guardar',
@@ -311,11 +440,13 @@ class _EditorFailureBanner extends StatelessWidget {
     required this.failure,
     required this.onDismiss,
     required this.onReload,
+    required this.validationSummary,
   });
 
   final AppFailure failure;
   final VoidCallback onDismiss;
   final VoidCallback? onReload;
+  final List<String> validationSummary;
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +478,20 @@ class _EditorFailureBanner extends StatelessWidget {
                   ],
                 ),
               ),
+              if (validationSummary.isNotEmpty)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final message in validationSummary)
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.xs),
+                          child: Text('• $message'),
+                        ),
+                    ],
+                  ),
+                ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

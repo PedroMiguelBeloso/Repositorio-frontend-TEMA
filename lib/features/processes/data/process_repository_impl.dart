@@ -65,6 +65,7 @@ class ProcessRepositoryImpl implements ProcessRepository {
     required String processId,
     required String officialVersion,
     required DateTime versionDate,
+    String? copyFromVersionId,
   }) async {
     if (officialVersion.trim().isEmpty) {
       throw const ValidationFailure('La versión oficial es obligatoria.');
@@ -74,6 +75,7 @@ class ProcessRepositoryImpl implements ProcessRepository {
         final request = CreateVersionRequestDto(
           officialVersion: officialVersion,
           versionDate: versionDate,
+          copyFromVersionId: copyFromVersionId,
         );
         final response = await _apiClient.post(
           '/processes/$processId/versions',
@@ -118,6 +120,22 @@ class ProcessRepositoryImpl implements ProcessRepository {
       'No se pudo interpretar la respuesta al guardar el borrador.',
     );
   }
+
+  @override
+  Future<ProcessVersion> publishVersion({
+    required String processId,
+    required String versionId,
+    required int revision,
+  }) async => _guard(
+    () async {
+      final response = await _apiClient.post(
+        '/processes/$processId/versions/$versionId/publish',
+        data: PublishVersionRequestDto(revision: revision).toJson(),
+      );
+      return ProcessVersionDto.fromJson(_asMap(response.data)).toModel();
+    },
+    'No se pudo interpretar la respuesta al publicar la versión.',
+  );
 
   Future<List<T>> _readAllPages<T>({
     required String path,

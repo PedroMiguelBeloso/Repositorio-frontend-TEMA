@@ -84,6 +84,9 @@ class ProcessListPage extends ConsumerWidget {
                         overview: overview,
                         isAdmin: isAdmin,
                         isBusy: data.isMutating,
+                        onOpenHistory: () => context.push(
+                          RouteNames.processHistory(overview.definition.id),
+                        ),
                         onOpenVersion: (version) => context.push(
                           RouteNames.processVersion(
                             overview.definition.id,
@@ -135,6 +138,7 @@ class _ProcessCard extends StatelessWidget {
     required this.overview,
     required this.isAdmin,
     required this.isBusy,
+    required this.onOpenHistory,
     required this.onOpenVersion,
     required this.onStartDraft,
   });
@@ -142,6 +146,7 @@ class _ProcessCard extends StatelessWidget {
   final ProcessOverview overview;
   final bool isAdmin;
   final bool isBusy;
+  final VoidCallback onOpenHistory;
   final ValueChanged<ProcessVersion> onOpenVersion;
   final VoidCallback onStartDraft;
 
@@ -197,7 +202,7 @@ class _ProcessCard extends StatelessWidget {
               ],
             );
 
-            final action = version != null
+            final openVersionAction = version != null
                 ? FilledButton.icon(
                     onPressed: isBusy ? null : () => onOpenVersion(version),
                     icon: Icon(
@@ -218,16 +223,26 @@ class _ProcessCard extends StatelessWidget {
                         label: const Text('Iniciar borrador'),
                       )
                     : null;
+            final actions = Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                ?openVersionAction,
+                OutlinedButton.icon(
+                  onPressed: isBusy ? null : onOpenHistory,
+                  icon: const Icon(Icons.history),
+                  label: const Text('Historial'),
+                ),
+              ],
+            );
 
             if (compact) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   summary,
-                  if (action != null) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    Align(alignment: Alignment.centerLeft, child: action),
-                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  Align(alignment: Alignment.centerLeft, child: actions),
                 ],
               );
             }
@@ -236,10 +251,8 @@ class _ProcessCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(child: summary),
-                if (action != null) ...[
-                  const SizedBox(width: AppSpacing.lg),
-                  action,
-                ],
+                const SizedBox(width: AppSpacing.lg),
+                actions,
               ],
             );
           },

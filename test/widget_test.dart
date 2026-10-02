@@ -26,7 +26,7 @@ void main() {
       (RouteNames.homePath, 'Inicio', true),
       (RouteNames.processesPath, 'Procesos', false),
       ('/processes/process-42', 'Detalle del proceso', false),
-      ('/processes/process-42/history', 'Historial del proceso', false),
+      ('/processes/process-42/history', 'Historial de versiones', false),
       (RouteNames.verificationsPath, 'Verificaciones', true),
       (RouteNames.newVerificationPath, 'Nueva verificación', true),
       ('/verifications/run-42', 'Detalle de verificación', true),

@@ -9,6 +9,7 @@ class FakeProcessRepository implements ProcessRepository {
     this.createProcessFailure,
     this.createDraftFailure,
     this.saveFailure,
+    this.publishFailure,
     this.savedVersionFactory,
   })  : definitions = [...?definitions],
         versionsByProcess = {
@@ -21,10 +22,13 @@ class FakeProcessRepository implements ProcessRepository {
   final AppFailure? createProcessFailure;
   final AppFailure? createDraftFailure;
   final AppFailure? saveFailure;
+  final AppFailure? publishFailure;
   final ProcessVersion Function(ProcessVersion submitted)? savedVersionFactory;
 
   M1ProcessCode? createdCode;
   ProcessVersion? submittedVersion;
+  String? copyFromVersionId;
+  ProcessVersion? publishedVersion;
 
   @override
   Future<List<ProcessDefinition>> listProcesses() async => [...definitions];
@@ -60,8 +64,10 @@ class FakeProcessRepository implements ProcessRepository {
     required String processId,
     required String officialVersion,
     required DateTime versionDate,
+    String? copyFromVersionId,
   }) async {
     if (createDraftFailure != null) throw createDraftFailure!;
+    this.copyFromVersionId = copyFromVersionId;
     final version = ProcessVersion(
       id: 'version-${(versionsByProcess[processId]?.length ?? 0) + 1}',
       processId: processId,
@@ -98,5 +104,24 @@ class FakeProcessRepository implements ProcessRepository {
     final index = versions.indexWhere((item) => item.id == version.id);
     if (index >= 0) versions[index] = saved;
     return saved;
+  }
+
+  @override
+  Future<ProcessVersion> publishVersion({
+    required String processId,
+    required String versionId,
+    required int revision,
+  }) async {
+    if (publishFailure != null) throw publishFailure!;
+    final versions = versionsByProcess[processId]!;
+    final index = versions.indexWhere((item) => item.id == versionId);
+    final published = versions[index].copyWith(
+      status: ProcessVersionStatus.published,
+      revision: revision + 1,
+      publishedAt: DateTime(2026, 10, 1),
+    );
+    versions[index] = published;
+    publishedVersion = published;
+    return published;
   }
 }

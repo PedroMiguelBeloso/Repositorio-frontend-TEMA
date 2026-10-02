@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:proyecto_tema_frontend/core/auth/session.dart';
+import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
 import 'package:proyecto_tema_frontend/core/errors/app_failure.dart';
 import 'package:proyecto_tema_frontend/features/processes/data/process_repository_provider.dart';
 import 'package:proyecto_tema_frontend/features/processes/model/process_models.dart';
@@ -99,6 +101,172 @@ void main() {
       expect(notifier.hasUnsavedChanges, isTrue);
     },
   );
+
+  test('publishes the saved revision and switches the editor to read only', () async {
+    final original = sampleProcessVersion();
+    final repository = FakeProcessRepository(
+      definitions: [_definition],
+      versionsByProcess: {
+        _definition.id: [original],
+      },
+    );
+    final container = ProviderContainer(
+      overrides: [
+        processRepositoryProvider.overrideWithValue(repository),
+        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.administrator)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = processEditorViewModelProvider((
+      processId: _definition.id,
+      versionId: original.id,
+    ));
+    await container.read(provider.future);
+
+    final notifier = container.read(provider.notifier);
+    expect(await notifier.publish(), isTrue);
+    expect(repository.publishedVersion?.revision, 8);
+    expect(container.read(provider).value!.version.status, ProcessVersionStatus.published);
+    expect(container.read(provider).value!.version.publishedAt, isNotNull);
+    expect(notifier.hasUnsavedChanges, isFalse);
+  });
+
+  test('refuses to publish local edits before they are saved', () async {
+    final original = sampleProcessVersion();
+    final repository = FakeProcessRepository(
+      definitions: [_definition],
+      versionsByProcess: {
+        _definition.id: [original],
+      },
+    );
+    final container = ProviderContainer(
+      overrides: [
+        processRepositoryProvider.overrideWithValue(repository),
+        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.administrator)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = processEditorViewModelProvider((
+      processId: _definition.id,
+      versionId: original.id,
+    ));
+    await container.read(provider.future);
+
+    final notifier = container.read(provider.notifier);
+    notifier.updateObjective('Cambio todavía local');
+
+    expect(await notifier.publish(), isFalse);
+    expect(repository.publishedVersion, isNull);
+    expect(container.read(provider).value!.version.status, ProcessVersionStatus.draft);
+    expect(notifier.hasUnsavedChanges, isTrue);
+  });
+
+  test('keeps the draft and local edits after publication conflicts', () async {
+    final original = sampleProcessVersion();
+    final repository = FakeProcessRepository(
+      definitions: [_definition],
+      versionsByProcess: {
+        _definition.id: [original],
+      },
+      publishFailure: const ConflictFailure('La versión ya no es publicable.'),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        processRepositoryProvider.overrideWithValue(repository),
+        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.administrator)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = processEditorViewModelProvider((
+      processId: _definition.id,
+      versionId: original.id,
+    ));
+    await container.read(provider.future);
+
+    expect(await container.read(provider.notifier).publish(), isFalse);
+    final state = container.read(provider).value!;
+    expect(state.version.status, ProcessVersionStatus.draft);
+    expect(state.actionFailure, isA<ConflictFailure>());
+    expect(state.isPublishing, isFalse);
+  });
+
+  test('maps publication validation paths and reports unlinked fields', () async {
+    final original = sampleProcessVersion();
+    final repository = FakeProcessRepository(
+      definitions: [_definition],
+      versionsByProcess: {
+        _definition.id: [original],
+      },
+      publishFailure: const ValidationFailure(
+        'La versión no se puede publicar.',
+        fieldErrors: {
+          'macroActivities[0].activities[0].instructions':
+              'Completá las instrucciones.',
+          'macroActivities[0].inputs[0].officialNomenclature':
+              'Falta la nomenclatura.',
+        },
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        processRepositoryProvider.overrideWithValue(repository),
+        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.administrator)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = processEditorViewModelProvider((
+      processId: _definition.id,
+      versionId: original.id,
+    ));
+    await container.read(provider.future);
+
+    expect(await container.read(provider.notifier).publish(), isFalse);
+    final state = container.read(provider).value!;
+    expect(state.version.status, ProcessVersionStatus.draft);
+    expect(
+      state.validationErrors.values,
+      contains('Completá las instrucciones.'),
+    );
+    expect(
+      state.validationSummary,
+      ['macroActivities[0].inputs[0].officialNomenclature: Falta la nomenclatura.'],
+    );
+  });
+
+  test('a reader cannot publish a draft', () async {
+    final original = sampleProcessVersion();
+    final repository = FakeProcessRepository(
+      definitions: [_definition],
+      versionsByProcess: {
+        _definition.id: [original],
+      },
+    );
+    final container = ProviderContainer(
+      overrides: [
+        processRepositoryProvider.overrideWithValue(repository),
+        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.reader)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = processEditorViewModelProvider((
+      processId: _definition.id,
+      versionId: original.id,
+    ));
+    await container.read(provider.future);
+
+    expect(await container.read(provider.notifier).publish(), isFalse);
+    expect(container.read(provider).value!.actionFailure, isA<PermissionFailure>());
+    expect(repository.publishedVersion, isNull);
+  });
+}
+
+class _TestSessionNotifier extends SessionNotifier {
+  _TestSessionNotifier(this.role);
+
+  final UserRole role;
+
+  @override
+  Session? build() => Session(role: role);
 }
 
 final _definition = ProcessDefinition(

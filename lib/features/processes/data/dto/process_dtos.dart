@@ -289,15 +289,26 @@ class CreateVersionRequestDto {
   const CreateVersionRequestDto({
     required this.officialVersion,
     required this.versionDate,
+    this.copyFromVersionId,
   });
 
   final String officialVersion;
   final DateTime versionDate;
+  final String? copyFromVersionId;
 
   Map<String, dynamic> toJson() => {
         'officialVersion': officialVersion.trim(),
         'versionDate': _dateToApi(versionDate),
+        if (copyFromVersionId != null) 'copyFromVersionId': copyFromVersionId,
       };
+}
+
+class PublishVersionRequestDto {
+  const PublishVersionRequestDto({required this.revision});
+
+  final int revision;
+
+  Map<String, dynamic> toJson() => {'revision': revision};
 }
 
 class SaveDraftRequestDto {
