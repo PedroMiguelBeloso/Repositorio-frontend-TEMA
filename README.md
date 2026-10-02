@@ -1,5 +1,7 @@
 # Proyecto Tema Frontend
 
+Guía de pruebas paso a paso: [docs/README_PRUEBAS.md](docs/README_PRUEBAS.md)
+
 Frontend de Proyecto Tema, construido con Flutter, Riverpod, go_router y Dio.
 Incluye autenticación, usuarios, servicios y configuración de evidencias en
 versiones de proceso, con navegación por rol, cliente HTTP común y tratamiento
