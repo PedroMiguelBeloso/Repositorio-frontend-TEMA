@@ -83,7 +83,10 @@ lib/
 		widgets/
 			app_scaffold.dart                  Navegación adaptable y filtrada por rol.
 			async_content.dart                 Estados reutilizables de carga/error/vacío.
+			app_error_view.dart                Error seguro y acción de reintento.
+			integration_status_card.dart       Presentación genérica de una integración.
 			placeholder_page.dart              Página temporal de funcionalidad.
+			status_chip.dart                   Etiqueta visual con estado textual.
 			.gitkeep                            Marcador de carpeta.
 	features/
 		auth/.gitkeep                         Reserva para autenticación.
@@ -94,7 +97,11 @@ lib/
 			viewmodel/                          Listado, detalle y editor.
 			view/                               Estructura y selector de catálogo.
 		services/.gitkeep                     Reserva para servicios.
-		integrations/.gitkeep                 Reserva para integraciones.
+		integrations/
+			model/                              Fuentes y estados de integración.
+			data/                               DTO, repositorio y provider.
+			viewmodel/                          Carga y prueba de estados.
+			view/                               Pantalla y presentación visual.
 		verifications/.gitkeep                Reserva para verificaciones.
 ```
 
@@ -105,7 +112,7 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 ## Qué se hizo
 
 - **Proyecto y dependencias:** `pubspec.yaml` declara Flutter, `flutter_riverpod`
-	`^3.3.2`, `go_router` `^17.5.0`, Dio `^5.11.1` e intl `^0.20.3`. El lockfile
+	`^3.4.3`, `go_router` `^18.0.2`, Dio `^5.11.1` e intl `^0.20.3`. El lockfile
 	existe, está versionado y se actualiza con `flutter pub get`. La única
 	dependencia directa de desarrollo es `flutter_test`, necesaria para los
 	tests; no se agregaron paquetes de mocking.
@@ -113,7 +120,8 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 	`MaterialApp.router`, el router y el tema centralizado.
 - **Navegación:** las rutas de procesos permiten consultar procesos y versiones,
 	abrir estructuras y editar evidencias en borradores con permisos por rol.
-	Las áreas restantes aún incluyen placeholders. La ruta no encontrada muestra
+	Integraciones tiene una pantalla funcional para Administrador. Otras áreas
+	aún incluyen placeholders. La ruta no encontrada muestra
 	un error y un botón para volver al
 	inicio. `AppScaffold` usa `NavigationBar` en pantallas angostas y
 	`NavigationRail` en anchas. Sin sesión se redirige a `/login`; Lector no puede
@@ -134,6 +142,13 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 	negocio de M2 no están implementados ni tratados como errores HTTP.
 - **Pruebas:** se verifican rutas, permisos, sesión, layout, Bearer presente y
 	ausente, y mapeo de errores sin backend real.
+- **Integraciones (WBS 5.3.5):** `/settings/integrations` consulta
+	`GET /integrations/status` y prueba lectura mediante `POST /integrations/test`
+	con `ApiClient`. Los tests sustituyen `IntegrationsRepository` por un fake de
+	Riverpod, sin red ni backend. La prueba integrada con Spring Boot está **No
+	verificado** hasta que existan esos endpoints. «Disponible» describe el estado
+	general de la conexión; no confirma el acceso a carpetas o proyectos por
+	servicio.
 
 ## Rutas
 
@@ -154,7 +169,7 @@ de Administrador vuelve a `/`.
 | `/verifications/new` | `new-verification` | Redirige a `/login` | Redirige a `/` | Permitida | Temporal |
 | `/verifications/:runId` | `verification-details` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications/:runId/results` | `verification-results` | Redirige a `/login` | Permitida | Permitida | Temporal |
-| `/settings/integrations` | `integrations` | Redirige a `/login` | Redirige a `/` | Permitida | Temporal |
+| `/settings/integrations` | `integrations` | Redirige a `/login` | Redirige a `/` | Permitida | Funcional |
 
 Los nombres y paths están en `lib/app/router/route_names.dart`. Las rutas
 exclusivas de Administrador están en `RouteNames.adminOnlyPaths`; para agregar
@@ -178,6 +193,11 @@ detalle.
 	callback de reintento y estado vacío.
 - `test/features/processes/`: cubre serialización de evidencia, operaciones y
   orden, guardado/recarga, permisos y el contrato HTTP del catálogo.
+- `test/features/integrations/`: cubre estados, fuentes, repositorio, carga,
+	reintento, prueba exitosa/fallida, doble envío y layout móvil/escritorio con
+	un repositorio falso.
+- `test/core/widgets/integration_status_widgets_test.dart`: cubre `StatusChip`,
+	`IntegrationStatusCard` y el botón de reintento de `AppErrorView`.
 
 Las sesiones de prueba se inyectan con overrides del provider de sesión. El
 cliente HTTP permite inyectar `apiHttpClientAdapterProvider`; las pruebas usan
@@ -186,47 +206,47 @@ a la red.
 
 ## Verificación
 
-Evidencia final recolectada el 2026-09-29 con Flutter 3.47.5 stable y Dart
+Evidencia final recolectada el 2026-10-02 con Flutter 3.47.5 stable y Dart
 3.13.4.
 
 `flutter pub get`:
 
 ```text
 Got dependencies!
-12 packages have newer versions incompatible with dependency constraints.
+5 packages have newer versions incompatible with dependency constraints.
 ```
 
 `flutter analyze`:
 
 ```text
 Analyzing proyecto_tema_frontend...
-No issues found! (ran in 1.4s)
+No issues found! (ran in 4.1s)
 ```
 
 `flutter test`:
 
 ```text
 00:02 +0: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: adds the current session token as a Bearer header
-[HTTP] GET /api/v1/private-resource status=200 duration=26ms
+[HTTP] GET /api/v1/private-resource status=200 duration=17ms
 00:02 +1: C:/dev/proyecto_tema_frontend/test/core/network/api_client_test.dart: does not add an Authorization header without a session token
-[HTTP] GET /api/v1/public-resource status=200 duration=2ms
-00:05 +28: All tests passed!
+[HTTP] GET /api/v1/public-resource status=200 duration=0ms
+00:15 +91: C:/dev/proyecto_tema_frontend/test/widget_test.dart: all configured authenticated routes resolve
+00:18 +110: All tests passed!
 ```
 
-`flutter run -d chrome --web-hostname 127.0.0.1 --web-port 8765`:
+`flutter run -d chrome`:
 
 ```text
 Launching lib\main.dart on Chrome in debug mode...
-Waiting for connection from debug service on Chrome...             25,6s
+Waiting for connection from debug service on Chrome...             45,3s
 Flutter run key commands.
 Starting application from main method in:
 org-dartlang-app:///web_entrypoint.dart.
 Application finished.
 ```
 
-Chrome mostró `http://127.0.0.1:8765/#/login` sin errores de consola. La
-sesión interactiva se cerró con `q`; la ruta inicial sin sesión también está
-afirmada por los tests de navegación.
+Chrome se inició sin error y el servicio de depuración quedó disponible. El
+total de tests indicado arriba corresponde a la última ejecución real.
 
 ## Cómo continuar
 
@@ -236,17 +256,17 @@ El recorrido previsto para una funcionalidad nueva es:
 Page -> ViewModel -> Repository -> ApiClient
 ```
 
-Esquema ilustrativo (las capas de feature todavía no están implementadas):
+Esquema ilustrativo para una funcionalidad futura:
 
 ```dart
-import 'package:dio/dio.dart';
+import 'package:proyecto_tema_frontend/core/network/api_client.dart';
 
 final class ExampleRepository {
-	ExampleRepository(this._client);
+	ExampleRepository(this._apiClient);
 
-	final Dio _client;
+	final ApiClient _apiClient;
 
-	Future<Response<dynamic>> load() => _client.get('/example');
+	Future<Response<dynamic>> load() => _apiClient.get('/example');
 }
 ```
 
@@ -254,7 +274,7 @@ Creá Page, ViewModel, modelos y repositorios dentro de la carpeta de
 `lib/features/` correspondiente. Después reemplazá el `PlaceholderPage` de la
 ruta correspondiente en `lib/app/router/app_router.dart`. Las páginas y
 ViewModels no instancian Dio ni escriben URLs del backend; los repositorios
-usan el cliente común de `apiClientProvider`. Los estilos compartidos se
+usan `ApiClient` desde `apiClientProvider`. Los estilos compartidos se
 centralizan en `lib/app/theme/app_theme.dart`.
 
 ## Pendiente y fuera de alcance
@@ -264,8 +284,12 @@ obtención/emisión del JWT, persistencia segura y sesión real. También queda 
 definir allí la integración de la sesión real con los permisos de navegación.
 
 Fuera del alcance de esta base: gestión de usuarios, formularios de procesos y
-servicios, conexiones con Drive o Redmine, ejecución de verificaciones y diseño
-final de pantallas.
+servicios, ejecución de verificaciones y evidencia/historial.
+
+La prueba integrada con Spring Boot para las conexiones de Drive y Redmine está
+**No verificado** hasta que el backend implemente `GET /integrations/status` y
+`POST /integrations/test`. La interfaz se desarrolla y prueba con un repositorio
+falso sustituible por Riverpod; no llama directamente a esos servicios.
 
 Observaciones verificables:
 
@@ -288,3 +312,13 @@ Observaciones verificables:
 	directa de desarrollo.
 - No se agregaron sesiones simuladas en el arranque normal: el provider comienza
 	sin sesión.
+- Para WBS 5.3.5, `IntegrationStatusCard` se ubica en `core/widgets` según la
+	guía visual v1.3 y recibe datos ya resueltos, sin importar la feature. Los
+	estados usan los tonos semánticos existentes (`success`, `warning`, `danger`,
+	`info`); la ausencia de fuente usa tono neutro. No fue necesario agregar
+	tokens ni modificar `app_theme.dart`.
+- Un estado recibido desconocido produce un `UnexpectedFailure` con mensaje
+	seguro; una fuente desconocida se ignora y queda representada como «Sin
+	información». La especificación OpenAPI indicada no estaba disponible en el
+	entorno, por lo que se implementó el contrato resumido en la tarea. La prueba
+	integrada queda pendiente hasta que existan los endpoints del backend.

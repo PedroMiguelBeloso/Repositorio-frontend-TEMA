@@ -61,6 +61,30 @@ void main() {
     expect(find.text('Disponible'), findsOneWidget);
   });
 
+  testWidgets('failed test keeps statuses and shows a safe error', (
+    tester,
+  ) async {
+    final completion = Completer<List<IntegrationStatus>>();
+    final repository = _FakeIntegrationsRepository(
+      statuses: _statuses,
+      testCompleter: completion,
+    );
+    final container = _container(repository);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(_subject(container));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Probar integraciones'));
+    await tester.pump();
+    completion.completeError(const NetworkFailure('No se pudo conectar.'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Disponible'), findsOneWidget);
+    expect(find.text('Error de autenticación'), findsOneWidget);
+    expect(find.text('No se pudo conectar.'), findsOneWidget);
+    expect(repository.testCalls, 1);
+  });
+
   testWidgets('load error shows retry and retry reloads the page', (
     tester,
   ) async {
