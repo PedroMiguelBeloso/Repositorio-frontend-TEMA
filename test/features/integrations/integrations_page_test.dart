@@ -148,7 +148,6 @@ void main() {
 
 ProviderContainer _container(_FakeIntegrationsRepository repository) =>
     ProviderContainer(
-      retry: (retryCount, error) => null,
       overrides: [
         integrationsRepositoryProvider.overrideWithValue(repository),
       ],

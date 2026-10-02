@@ -100,4 +100,5 @@ class IntegrationsViewModel extends AsyncNotifier<IntegrationsViewState> {
 final integrationsViewModelProvider =
     AsyncNotifierProvider<IntegrationsViewModel, IntegrationsViewState>(
       IntegrationsViewModel.new,
+      retry: (retryCount, error) => null,
     );
