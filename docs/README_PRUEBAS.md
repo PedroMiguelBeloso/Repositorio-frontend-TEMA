@@ -79,7 +79,7 @@ Resultado esperado real:
 
 ```text
 Analyzing proyecto_tema_frontend...
-No issues found! (ran in 3.9s)
+No issues found! (ran in 4.6s)
 ```
 
 ### 2.2 Suite completa
@@ -91,7 +91,7 @@ flutter test
 Resultado esperado real:
 
 ```text
-00:15 +110: All tests passed!
+00:16 +110: All tests passed!
 ```
 
 La cifra real en esta última ejecución es: 110 tests.
