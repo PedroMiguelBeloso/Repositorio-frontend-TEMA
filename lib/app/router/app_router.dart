@@ -8,6 +8,7 @@ import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/placeholder_page.dart';
 import '../../features/auth/view/change_password_page.dart';
 import '../../features/auth/view/login_page.dart';
+import '../../features/integrations/view/integrations_page.dart';
 import '../../features/users/view/create_reader_page.dart';
 import '../../features/users/view/users_page.dart';
 import '../../features/processes/view/process_pages.dart';
@@ -195,8 +196,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.integrationsName,
             path: RouteNames.integrationsPath,
-            builder: (context, state) =>
-                const PlaceholderPage(title: 'Integraciones'),
+            builder: (context, state) => const IntegrationsPage(),
           ),
           GoRoute(
             name: RouteNames.usersName,

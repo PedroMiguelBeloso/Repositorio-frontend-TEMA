@@ -6,6 +6,9 @@ import 'package:proyecto_tema_frontend/app/router/app_router.dart';
 import 'package:proyecto_tema_frontend/app/router/route_names.dart';
 import 'package:proyecto_tema_frontend/core/auth/session.dart';
 import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
+import 'package:proyecto_tema_frontend/features/integrations/data/integrations_repository.dart';
+import 'package:proyecto_tema_frontend/features/integrations/data/integrations_repository_provider.dart';
+import 'package:proyecto_tema_frontend/features/integrations/model/integration_status.dart';
 import 'package:proyecto_tema_frontend/features/processes/viewmodel/process_list_view_model.dart';
 import 'package:proyecto_tema_frontend/features/services/model/service_models.dart'
     hide ProcessStatus;
@@ -31,7 +34,7 @@ void main() {
       (RouteNames.newVerificationPath, 'Nueva verificación', true),
       ('/verifications/run-42', 'Detalle de verificación', true),
       ('/verifications/run-42/results', 'Resultados de verificación', true),
-      (RouteNames.integrationsPath, 'Integraciones', true),
+      (RouteNames.integrationsPath, 'Integraciones', false),
     ];
 
     for (final (path, title, isPlaceholder) in routes) {
@@ -320,7 +323,8 @@ void main() {
     container.read(appRouterProvider).go(RouteNames.integrationsPath);
     await tester.pumpAndSettle();
 
-    expect(find.text('Funcionalidad en desarrollo'), findsOneWidget);
+    expect(find.text('Probar integraciones'), findsOneWidget);
+    expect(find.text('Sin información'), findsNWidgets(2));
     expect(find.text('Integraciones'), findsNWidgets(2));
   });
 
@@ -402,6 +406,9 @@ Future<ProviderContainer> _pumpApp(
           _TestProcessRepository(),
         ),
         processListViewModelProvider.overrideWith(_TestProcessListViewModel.new),
+        integrationsRepositoryProvider.overrideWithValue(
+          _TestIntegrationsRepository(),
+        ),
       ],
       child: const App(),
     ),
@@ -414,6 +421,14 @@ class _TestProcessListViewModel extends ProcessListViewModel {
   @override
   Future<ProcessListState> build() async =>
       const ProcessListState(items: []);
+}
+
+class _TestIntegrationsRepository implements IntegrationsRepository {
+  @override
+  Future<List<IntegrationStatus>> loadStatuses() async => const [];
+
+  @override
+  Future<List<IntegrationStatus>> testIntegrations() async => const [];
 }
 
 class _TestServiceListViewModel extends ServiceListViewModel {
