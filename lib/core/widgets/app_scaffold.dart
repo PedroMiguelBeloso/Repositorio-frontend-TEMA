@@ -88,6 +88,8 @@ class AppScaffold extends ConsumerWidget {
             children: [
               NavigationRail(
                 extended: constraints.maxWidth >= 1100,
+                trailingAtBottom: true,
+                scrollable: true,
                 labelType: constraints.maxWidth >= 1100
                     ? null
                     : NavigationRailLabelType.all,

@@ -17,6 +17,13 @@ void main() {
 
     expect(tester.getSize(find.byType(TextFormField).first).width,
         lessThanOrEqualTo(420));
+    expect(
+      find.byWidgetPredicate((widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName == 'assets/images/logoTema.jpg'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

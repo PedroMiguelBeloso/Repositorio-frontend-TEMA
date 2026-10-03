@@ -70,10 +70,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
-                      Icons.verified_user_outlined,
-                      size: 48,
-                      color: Theme.of(context).colorScheme.primary,
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 330),
+                        child: Image.asset(
+                          'assets/images/logoTema.jpg',
+                          fit: BoxFit.contain,
+                          semanticLabel: 'TEMA Consulting',
+                        ),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
