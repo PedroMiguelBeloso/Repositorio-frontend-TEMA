@@ -7,6 +7,7 @@ import '../../../core/errors/app_failure.dart';
 import '../data/dto/process_dtos.dart';
 import '../data/process_repository_provider.dart';
 import '../model/process_models.dart';
+import '../model/registry_definition.dart';
 import 'process_history_view_model.dart';
 import 'process_list_view_model.dart';
 import 'process_view_models.dart' as legacy_process;
@@ -17,11 +18,11 @@ enum ProcessNodeType { macroActivity, activity }
 
 class ProcessNodeSelection {
   const ProcessNodeSelection.macro(this.macroKey)
-      : type = ProcessNodeType.macroActivity,
-        activityKey = null;
+    : type = ProcessNodeType.macroActivity,
+      activityKey = null;
 
   const ProcessNodeSelection.activity(this.macroKey, this.activityKey)
-      : type = ProcessNodeType.activity;
+    : type = ProcessNodeType.activity;
 
   final ProcessNodeType type;
   final String macroKey;
@@ -100,13 +101,15 @@ class ProcessEditorState {
     return ProcessEditorState(
       definition: definition,
       version: version ?? this.version,
-      selectedNode:
-          clearSelectedNode ? null : selectedNode ?? this.selectedNode,
+      selectedNode: clearSelectedNode
+          ? null
+          : selectedNode ?? this.selectedNode,
       validationErrors: clearValidationErrors
           ? const {}
           : validationErrors ?? this.validationErrors,
-      actionFailure:
-          clearActionFailure ? null : actionFailure ?? this.actionFailure,
+      actionFailure: clearActionFailure
+          ? null
+          : actionFailure ?? this.actionFailure,
       isSaving: isSaving ?? this.isSaving,
       isPublishing: isPublishing ?? this.isPublishing,
       saveSucceeded: saveSucceeded ?? this.saveSucceeded,
@@ -156,15 +159,11 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
   }
 
   void updateOfficialVersion(String value) {
-    _updateVersion(
-      (version) => version.copyWith(officialVersion: value),
-    );
+    _updateVersion((version) => version.copyWith(officialVersion: value));
   }
 
   void updateVersionDate(DateTime value) {
-    _updateVersion(
-      (version) => version.copyWith(versionDate: value),
-    );
+    _updateVersion((version) => version.copyWith(versionDate: value));
   }
 
   void updateObjective(String value) {
@@ -300,9 +299,7 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
     final item = macros.removeAt(index);
     macros.insert(target, item);
     _updateVersion(
-      (version) => version.copyWith(
-        macroActivities: _normalizeMacros(macros),
-      ),
+      (version) => version.copyWith(macroActivities: _normalizeMacros(macros)),
     );
   }
 
@@ -334,10 +331,7 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
             )
             .toList(),
       ),
-      selectedNode: ProcessNodeSelection.activity(
-        macroKey,
-        activity.localKey,
-      ),
+      selectedNode: ProcessNodeSelection.activity(macroKey, activity.localKey),
     );
   }
 
@@ -382,14 +376,12 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
     );
   }
 
-  void removeActivity({
-    required String macroKey,
-    required String activityKey,
-  }) {
+  void removeActivity({required String macroKey, required String activityKey}) {
     final current = state.value;
     if (current == null) return;
     final selection = current.selectedNode;
-    final shouldClear = selection?.type == ProcessNodeType.activity &&
+    final shouldClear =
+        selection?.type == ProcessNodeType.activity &&
         selection?.activityKey == activityKey;
 
     _updateVersion(
@@ -435,12 +427,230 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
         macroActivities: version.macroActivities
             .map(
               (item) => item.localKey == macroKey
-                  ? item.copyWith(
-                      activities: _normalizeActivities(activities),
-                    )
+                  ? item.copyWith(activities: _normalizeActivities(activities))
                   : item,
             )
             .toList(),
+      ),
+    );
+  }
+
+  bool addEvidence({
+    required String macroKey,
+    String? activityKey,
+    required EvidenceLocation location,
+    required RegistryDefinition definition,
+    required String displayName,
+    required ApplicabilityMode applicability,
+    required EvidenceCardinality cardinality,
+  }) {
+    final current = state.value;
+    if (current == null) return false;
+    final macro = current.version.macroActivities
+        .where((item) => item.localKey == macroKey)
+        .firstOrNull;
+    if (macro == null) return false;
+    final items = _evidenceItems(macro, location, activityKey);
+    if (items == null) return false;
+    if (!_canUseTicket(macro, location, definition.evidenceType, cardinality)) {
+      return false;
+    }
+    final evidence = EvidenceExpectation(
+      id: null,
+      registryDefinitionId: definition.id,
+      displayName: displayName.trim().isEmpty
+          ? definition.canonicalName
+          : displayName.trim(),
+      evidenceType: definition.evidenceType,
+      applicability: applicability,
+      cardinality: cardinality,
+      location: location,
+      order: items.length,
+      officialNomenclature: definition.officialNomenclature,
+    );
+    _replaceEvidence(macroKey, activityKey, location, [...items, evidence]);
+    return true;
+  }
+
+  bool updateEvidence({
+    required String macroKey,
+    String? activityKey,
+    required EvidenceLocation location,
+    required int index,
+    required RegistryDefinition definition,
+    required String displayName,
+    required ApplicabilityMode applicability,
+    required EvidenceCardinality cardinality,
+  }) {
+    final current = state.value;
+    if (current == null) return false;
+    final macro = current.version.macroActivities
+        .where((item) => item.localKey == macroKey)
+        .firstOrNull;
+    if (macro == null) return false;
+    final items = _evidenceItems(macro, location, activityKey);
+    if (items == null || index < 0 || index >= items.length) return false;
+    if (!_canUseTicket(
+      macro,
+      location,
+      definition.evidenceType,
+      cardinality,
+      editing: items[index],
+    )) {
+      return false;
+    }
+    final updated = [...items];
+    updated[index] = EvidenceExpectation(
+      id: items[index].id,
+      registryDefinitionId: definition.id,
+      displayName: displayName.trim().isEmpty
+          ? definition.canonicalName
+          : displayName.trim(),
+      evidenceType: definition.evidenceType,
+      applicability: applicability,
+      cardinality: cardinality,
+      location: location,
+      order: index,
+      officialNomenclature: definition.officialNomenclature,
+    );
+    _replaceEvidence(macroKey, activityKey, location, updated);
+    return true;
+  }
+
+  void removeEvidence({
+    required String macroKey,
+    String? activityKey,
+    required EvidenceLocation location,
+    required int index,
+  }) {
+    final macro = state.value?.version.macroActivities
+        .where((item) => item.localKey == macroKey)
+        .firstOrNull;
+    if (macro == null) return;
+    final items = _evidenceItems(macro, location, activityKey);
+    if (items == null || index < 0 || index >= items.length) return;
+    final updated = [...items]..removeAt(index);
+    _replaceEvidence(macroKey, activityKey, location, updated);
+  }
+
+  void moveEvidence({
+    required String macroKey,
+    String? activityKey,
+    required EvidenceLocation location,
+    required int index,
+    required int delta,
+  }) {
+    final macro = state.value?.version.macroActivities
+        .where((item) => item.localKey == macroKey)
+        .firstOrNull;
+    if (macro == null) return;
+    final items = _evidenceItems(macro, location, activityKey);
+    if (items == null ||
+        index < 0 ||
+        index + delta < 0 ||
+        index + delta >= items.length) {
+      return;
+    }
+    final updated = [...items];
+    final item = updated.removeAt(index);
+    updated.insert(index + delta, item);
+    _replaceEvidence(macroKey, activityKey, location, updated);
+  }
+
+  List<EvidenceExpectation>? _evidenceItems(
+    ProcessMacroActivity macro,
+    EvidenceLocation location,
+    String? activityKey,
+  ) => switch (location) {
+    EvidenceLocation.input => macro.inputs,
+    EvidenceLocation.output => macro.outputs,
+    EvidenceLocation.activityRecord =>
+      macro.activities
+          .where((activity) => activity.localKey == activityKey)
+          .firstOrNull
+          ?.records,
+    EvidenceLocation.unknown => null,
+  };
+
+  void _replaceEvidence(
+    String macroKey,
+    String? activityKey,
+    EvidenceLocation location,
+    List<EvidenceExpectation> items,
+  ) {
+    final ordered = [
+      for (var i = 0; i < items.length; i++) items[i].copyWith(order: i),
+    ];
+    _updateVersion(
+      (version) => version.copyWith(
+        macroActivities: version.macroActivities.map((macro) {
+          if (macro.localKey != macroKey) return macro;
+          return switch (location) {
+            EvidenceLocation.input => macro.copyWith(inputs: ordered),
+            EvidenceLocation.output => macro.copyWith(outputs: ordered),
+            EvidenceLocation.activityRecord => macro.copyWith(
+              activities: macro.activities
+                  .map(
+                    (activity) => activity.localKey == activityKey
+                        ? activity.copyWith(records: ordered)
+                        : activity,
+                  )
+                  .toList(),
+            ),
+            EvidenceLocation.unknown => macro,
+          };
+        }).toList(),
+      ),
+    );
+  }
+
+  bool _canUseTicket(
+    ProcessMacroActivity macro,
+    EvidenceLocation location,
+    EvidenceType type,
+    EvidenceCardinality cardinality, {
+    EvidenceExpectation? editing,
+  }) {
+    final all = [
+      ...macro.inputs,
+      ...macro.outputs,
+      for (final activity in macro.activities) ...activity.records,
+    ].where((item) => !identical(item, editing));
+    if (type == EvidenceType.ticket &&
+        location == EvidenceLocation.input &&
+        all.any(
+          (item) =>
+              item.location == EvidenceLocation.input &&
+              item.evidenceType == EvidenceType.ticket,
+        )) {
+      _showLocalError(
+        'Solo puede haber una entrada Ticket por macroactividad. '
+        'Elegí «Una o varias» si se reciben varios tickets.',
+      );
+      return false;
+    }
+    if (type == EvidenceType.ticket &&
+        all.any(
+          (item) =>
+              item.evidenceType == EvidenceType.ticket &&
+              item.cardinality != cardinality,
+        )) {
+      _showLocalError(
+        'Todos los registros Ticket de esta macroactividad '
+        'deben tener la misma cantidad.',
+      );
+      return false;
+    }
+    return true;
+  }
+
+  void _showLocalError(String message) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData(
+      current.copyWith(
+        actionFailure: ValidationFailure(message),
+        saveSucceeded: false,
       ),
     );
   }
@@ -468,6 +678,7 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
       state = AsyncData(
         current.copyWith(
           validationErrors: validationErrors,
+          validationSummary: validationErrors.values.toSet().toList(),
           actionFailure: const ValidationFailure(
             'Revisá los campos señalados antes de guardar.',
           ),
@@ -488,13 +699,15 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
     );
 
     try {
-      final saved = await ref.read(processRepositoryProvider).saveDraft(
-            current.version,
-          );
+      final saved = await ref
+          .read(processRepositoryProvider)
+          .saveDraft(current.version);
       _initialFingerprint = _fingerprint(saved);
       ref.invalidate(processListViewModelProvider);
       ref.invalidate(processHistoryViewModelProvider(key.processId));
-      ref.invalidate(legacy_process.processDetailViewModelProvider(key.processId));
+      ref.invalidate(
+        legacy_process.processDetailViewModelProvider(key.processId),
+      );
       final selection = _selectionAfterSave(current.selectedNode, saved);
       state = AsyncData(
         current.copyWith(
@@ -588,6 +801,17 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
       return false;
     }
 
+    if (current.version.macroActivities.isEmpty ||
+        current.version.macroActivities.any(
+          (macro) => macro.activities.isEmpty,
+        )) {
+      _showLocalError(
+        'Para publicar, agregá al menos una macroactividad y '
+        'una actividad dentro de cada macroactividad.',
+      );
+      return false;
+    }
+
     state = AsyncData(
       current.copyWith(
         isPublishing: true,
@@ -599,7 +823,9 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
     );
 
     try {
-      final published = await ref.read(processRepositoryProvider).publishVersion(
+      final published = await ref
+          .read(processRepositoryProvider)
+          .publishVersion(
             processId: key.processId,
             versionId: key.versionId,
             revision: current.version.revision,
@@ -607,7 +833,9 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
       _initialFingerprint = _fingerprint(published);
       ref.invalidate(processListViewModelProvider);
       ref.invalidate(processHistoryViewModelProvider(key.processId));
-      ref.invalidate(legacy_process.processDetailViewModelProvider(key.processId));
+      ref.invalidate(
+        legacy_process.processDetailViewModelProvider(key.processId),
+      );
       final selection = _selectionAfterSave(current.selectedNode, published);
       state = AsyncData(
         current.copyWith(
@@ -684,9 +912,9 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
   }) {
     final current = state.value;
     if (current == null ||
-      current.isSaving ||
-      current.isPublishing ||
-      !current.version.status.isDraft) {
+        current.isSaving ||
+        current.isPublishing ||
+        !current.version.status.isDraft) {
       return;
     }
 
@@ -729,15 +957,33 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
         errors[ProcessEditorFieldKeys.macroName(macro.localKey)] =
             'Ingresá el nombre de la macroactividad.';
       }
+      final allTicketEvidence = [
+        ...macro.inputs,
+        ...macro.outputs,
+        for (final activity in macro.activities) ...activity.records,
+      ].where((item) => item.evidenceType == EvidenceType.ticket).toList();
+      if (macro.inputs
+              .where((item) => item.evidenceType == EvidenceType.ticket)
+              .length >
+          1) {
+        errors['macro:${macro.localKey}:tickets'] =
+            'Solo puede haber una entrada Ticket por macroactividad.';
+      }
+      if (allTicketEvidence.map((item) => item.cardinality).toSet().length >
+          1) {
+        errors['macro:${macro.localKey}:cardinality'] =
+            'Todos los registros Ticket deben tener la misma cantidad.';
+      }
       for (final activity in macro.activities) {
         if (activity.name.trim().isEmpty) {
           errors[ProcessEditorFieldKeys.activityName(activity.localKey)] =
               'Ingresá el nombre de la actividad.';
         }
         if (activity.instructions.trim().isEmpty) {
-          errors[
-            ProcessEditorFieldKeys.activityInstructions(activity.localKey)
-          ] = 'Ingresá las instrucciones de la actividad.';
+          errors[ProcessEditorFieldKeys.activityInstructions(
+                activity.localKey,
+              )] =
+              'Ingresá las instrucciones de la actividad.';
         }
       }
     }
@@ -774,11 +1020,10 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
       if (policyMatch != null) {
         final index = int.parse(policyMatch.group(1)!);
         if (index < version.policies.length) {
-          mapped[
-            ProcessEditorFieldKeys.policyText(
-              version.policies[index].localKey,
-            )
-          ] = entry.value;
+          mapped[ProcessEditorFieldKeys.policyText(
+                version.policies[index].localKey,
+              )] =
+              entry.value;
         }
         continue;
       }
@@ -789,11 +1034,10 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
       if (macroMatch != null) {
         final index = int.parse(macroMatch.group(1)!);
         if (index < version.macroActivities.length) {
-          mapped[
-            ProcessEditorFieldKeys.macroName(
-              version.macroActivities[index].localKey,
-            )
-          ] = entry.value;
+          mapped[ProcessEditorFieldKeys.macroName(
+                version.macroActivities[index].localKey,
+              )] =
+              entry.value;
         }
         continue;
       }
@@ -810,10 +1054,11 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
           if (activityIndex < macro.activities.length) {
             final activity = macro.activities[activityIndex];
             mapped[property == 'name'
-                ? ProcessEditorFieldKeys.activityName(activity.localKey)
-                : ProcessEditorFieldKeys.activityInstructions(
-                    activity.localKey,
-                  )] = entry.value;
+                    ? ProcessEditorFieldKeys.activityName(activity.localKey)
+                    : ProcessEditorFieldKeys.activityInstructions(
+                        activity.localKey,
+                      )] =
+                entry.value;
           }
         }
       }
@@ -858,7 +1103,10 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
             .where((item) => item.localKey == previous.activityKey)
             .firstOrNull;
         if (activity != null) {
-          return ProcessNodeSelection.activity(macro.localKey, activity.localKey);
+          return ProcessNodeSelection.activity(
+            macro.localKey,
+            activity.localKey,
+          );
         }
       }
     }
@@ -892,13 +1140,12 @@ class ProcessEditorViewModel extends AsyncNotifier<ProcessEditorState> {
   }
 }
 
-final processEditorViewModelProvider = AsyncNotifierProvider.family<
-    ProcessEditorViewModel,
-    ProcessEditorState,
-    ProcessEditorKey>(
-  ProcessEditorViewModel.new,
-  isAutoDispose: true,
-);
+final processEditorViewModelProvider =
+    AsyncNotifierProvider.family<
+      ProcessEditorViewModel,
+      ProcessEditorState,
+      ProcessEditorKey
+    >(ProcessEditorViewModel.new, isAutoDispose: true);
 
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull {

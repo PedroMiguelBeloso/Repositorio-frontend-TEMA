@@ -26,12 +26,12 @@ class ProcessDefinitionDto {
   }
 
   ProcessDefinition toModel() => ProcessDefinition(
-        id: id,
-        code: M1ProcessCode.fromApi(code),
-        name: name,
-        m2Enabled: m2Enabled,
-        createdAt: createdAt,
-      );
+    id: id,
+    code: M1ProcessCode.fromApi(code),
+    name: name,
+    m2Enabled: m2Enabled,
+    createdAt: createdAt,
+  );
 }
 
 class ProcessVersionDto {
@@ -73,33 +73,35 @@ class ProcessVersionDto {
       revision: _requiredInt(json, 'revision'),
       objective: _stringOrEmpty(json['objective']),
       owner: _stringOrEmpty(json['owner']),
-      policies: _listOfMaps(json, 'policies')
-          .map(ProcessPolicyDto.fromJson)
-          .toList(),
-      macroActivities: _listOfMaps(json, 'macroActivities')
-          .map(ProcessMacroActivityDto.fromJson)
-          .toList(),
+      policies: _listOfMaps(
+        json,
+        'policies',
+      ).map(ProcessPolicyDto.fromJson).toList(),
+      macroActivities: _listOfMaps(
+        json,
+        'macroActivities',
+      ).map(ProcessMacroActivityDto.fromJson).toList(),
       publishedAt: _optionalDateTime(json['publishedAt']),
       createdAt: _requiredDateTime(json, 'createdAt'),
     );
   }
 
   ProcessVersion toModel() => ProcessVersion(
-        id: id,
-        processId: processId,
-        officialVersion: officialVersion,
-        versionDate: versionDate,
-        status: ProcessVersionStatus.fromApi(status),
-        revision: revision,
-        objective: objective,
-        owner: owner,
-        policies: policies.map((policy) => policy.toModel()).toList(),
-        macroActivities: macroActivities
-            .map((macroActivity) => macroActivity.toModel())
-            .toList(),
-        publishedAt: publishedAt,
-        createdAt: createdAt,
-      );
+    id: id,
+    processId: processId,
+    officialVersion: officialVersion,
+    versionDate: versionDate,
+    status: ProcessVersionStatus.fromApi(status),
+    revision: revision,
+    objective: objective,
+    owner: owner,
+    policies: policies.map((policy) => policy.toModel()).toList(),
+    macroActivities: macroActivities
+        .map((macroActivity) => macroActivity.toModel())
+        .toList(),
+    publishedAt: publishedAt,
+    createdAt: createdAt,
+  );
 }
 
 class ProcessPolicyDto {
@@ -121,12 +123,8 @@ class ProcessPolicyDto {
     );
   }
 
-  ProcessPolicy toModel() => ProcessPolicy(
-        id: id,
-        localKey: id,
-        order: order,
-        text: text,
-      );
+  ProcessPolicy toModel() =>
+      ProcessPolicy(id: id, localKey: id, order: order, text: text);
 }
 
 class ProcessMacroActivityDto {
@@ -154,28 +152,31 @@ class ProcessMacroActivityDto {
       name: _requiredString(json, 'name'),
       description: _stringOrEmpty(json['description']),
       order: _requiredInt(json, 'order'),
-      inputs: _listOfMaps(json, 'inputs')
-          .map(EvidenceExpectationDto.fromJson)
-          .toList(),
-      activities: _listOfMaps(json, 'activities')
-          .map(ProcessActivityDto.fromJson)
-          .toList(),
-      outputs: _listOfMaps(json, 'outputs')
-          .map(EvidenceExpectationDto.fromJson)
-          .toList(),
+      inputs: _listOfMaps(
+        json,
+        'inputs',
+      ).map(EvidenceExpectationDto.fromJson).toList(),
+      activities: _listOfMaps(
+        json,
+        'activities',
+      ).map(ProcessActivityDto.fromJson).toList(),
+      outputs: _listOfMaps(
+        json,
+        'outputs',
+      ).map(EvidenceExpectationDto.fromJson).toList(),
     );
   }
 
   ProcessMacroActivity toModel() => ProcessMacroActivity(
-        id: id,
-        localKey: id,
-        name: name,
-        description: description,
-        order: order,
-        inputs: inputs.map((item) => item.toModel()).toList(),
-        activities: activities.map((item) => item.toModel()).toList(),
-        outputs: outputs.map((item) => item.toModel()).toList(),
-      );
+    id: id,
+    localKey: id,
+    name: name,
+    description: description,
+    order: order,
+    inputs: inputs.map((item) => item.toModel()).toList(),
+    activities: activities.map((item) => item.toModel()).toList(),
+    outputs: outputs.map((item) => item.toModel()).toList(),
+  );
 }
 
 class ProcessActivityDto {
@@ -205,22 +206,23 @@ class ProcessActivityDto {
       instructions: _requiredString(json, 'instructions'),
       etaText: _stringOrEmpty(json['etaText']),
       order: _requiredInt(json, 'order'),
-      records: _listOfMaps(json, 'records')
-          .map(EvidenceExpectationDto.fromJson)
-          .toList(),
+      records: _listOfMaps(
+        json,
+        'records',
+      ).map(EvidenceExpectationDto.fromJson).toList(),
     );
   }
 
   ProcessActivity toModel() => ProcessActivity(
-        id: id,
-        localKey: id,
-        name: name,
-        responsible: responsible,
-        instructions: instructions,
-        etaText: etaText,
-        order: order,
-        records: records.map((item) => item.toModel()).toList(),
-      );
+    id: id,
+    localKey: id,
+    name: name,
+    responsible: responsible,
+    instructions: instructions,
+    etaText: etaText,
+    order: order,
+    records: records.map((item) => item.toModel()).toList(),
+  );
 }
 
 class EvidenceExpectationDto {
@@ -261,16 +263,16 @@ class EvidenceExpectationDto {
   }
 
   EvidenceExpectation toModel() => EvidenceExpectation(
-        id: id,
-        registryDefinitionId: registryDefinitionId,
-        displayName: displayName,
-        evidenceType: EvidenceType.fromApi(evidenceType),
-        applicability: ApplicabilityMode.fromApi(applicability),
-        cardinality: EvidenceCardinality.fromApi(cardinality),
-        location: EvidenceLocation.fromApi(location),
-        order: order,
-        officialNomenclature: officialNomenclature,
-      );
+    id: id,
+    registryDefinitionId: registryDefinitionId,
+    displayName: displayName,
+    evidenceType: EvidenceType.fromApi(evidenceType),
+    applicability: ApplicabilityMode.fromApi(applicability),
+    cardinality: EvidenceCardinality.fromApi(cardinality),
+    location: EvidenceLocation.fromApi(location),
+    order: order,
+    officialNomenclature: officialNomenclature,
+  );
 }
 
 class CreateProcessRequestDto {
@@ -279,10 +281,7 @@ class CreateProcessRequestDto {
   final M1ProcessCode code;
   final String name;
 
-  Map<String, dynamic> toJson() => {
-        'code': code.apiValue,
-        'name': name,
-      };
+  Map<String, dynamic> toJson() => {'code': code.apiValue, 'name': name};
 }
 
 class CreateVersionRequestDto {
@@ -297,10 +296,10 @@ class CreateVersionRequestDto {
   final String? copyFromVersionId;
 
   Map<String, dynamic> toJson() => {
-        'officialVersion': officialVersion.trim(),
-        'versionDate': _dateToApi(versionDate),
-        if (copyFromVersionId != null) 'copyFromVersionId': copyFromVersionId,
-      };
+    'officialVersion': officialVersion.trim(),
+    'versionDate': _dateToApi(versionDate),
+    if (copyFromVersionId != null) 'copyFromVersionId': copyFromVersionId,
+  };
 }
 
 class PublishVersionRequestDto {
@@ -317,54 +316,56 @@ class SaveDraftRequestDto {
   final ProcessVersion version;
 
   Map<String, dynamic> toJson() => {
-        'revision': version.revision,
-        'officialVersion': version.officialVersion.trim(),
-        'versionDate': _dateToApi(version.versionDate),
-        'objective': version.objective.trim(),
-        'owner': version.owner.trim(),
-        'policies': version.policies
-            .map((policy) => {
-                  if (policy.id != null) 'id': policy.id,
-                  'order': policy.order,
-                  'text': policy.text.trim(),
-                })
-            .toList(),
-        'macroActivities': version.macroActivities
-            .map(
-              (macroActivity) => {
-                if (macroActivity.id != null) 'id': macroActivity.id,
-                'name': macroActivity.name.trim(),
-                'description': macroActivity.description.trim(),
-                'order': macroActivity.order,
-                'inputs': macroActivity.inputs.map(_evidenceInput).toList(),
-                'activities': macroActivity.activities
-                    .map(
-                      (activity) => {
-                        if (activity.id != null) 'id': activity.id,
-                        'name': activity.name.trim(),
-                        'responsible': activity.responsible.trim(),
-                        'instructions': activity.instructions.trim(),
-                        'etaText': activity.etaText.trim(),
-                        'order': activity.order,
-                        'records': activity.records.map(_evidenceInput).toList(),
-                      },
-                    )
-                    .toList(),
-                'outputs': macroActivity.outputs.map(_evidenceInput).toList(),
-              },
-            )
-            .toList(),
-      };
+    'revision': version.revision,
+    'officialVersion': version.officialVersion.trim(),
+    'versionDate': _dateToApi(version.versionDate),
+    'objective': version.objective.trim(),
+    'owner': version.owner.trim(),
+    'policies': version.policies
+        .map(
+          (policy) => {
+            if (policy.id != null) 'id': policy.id,
+            'order': policy.order,
+            'text': policy.text.trim(),
+          },
+        )
+        .toList(),
+    'macroActivities': version.macroActivities
+        .map(
+          (macroActivity) => {
+            if (macroActivity.id != null) 'id': macroActivity.id,
+            'name': macroActivity.name.trim(),
+            'description': macroActivity.description.trim(),
+            'order': macroActivity.order,
+            'inputs': macroActivity.inputs.map(_evidenceInput).toList(),
+            'activities': macroActivity.activities
+                .map(
+                  (activity) => {
+                    if (activity.id != null) 'id': activity.id,
+                    'name': activity.name.trim(),
+                    'responsible': activity.responsible.trim(),
+                    'instructions': activity.instructions.trim(),
+                    'etaText': activity.etaText.trim(),
+                    'order': activity.order,
+                    'records': activity.records.map(_evidenceInput).toList(),
+                  },
+                )
+                .toList(),
+            'outputs': macroActivity.outputs.map(_evidenceInput).toList(),
+          },
+        )
+        .toList(),
+  };
 
   static Map<String, dynamic> _evidenceInput(EvidenceExpectation evidence) => {
-        'id': evidence.id,
-        'registryDefinitionId': evidence.registryDefinitionId,
-        if (evidence.displayName.trim().isNotEmpty)
-          'displayName': evidence.displayName.trim(),
-        'applicability': evidence.applicability.apiValue,
-        'cardinality': evidence.cardinality.apiValue,
-        'order': evidence.order,
-      };
+    if (evidence.id != null) 'id': evidence.id,
+    'registryDefinitionId': evidence.registryDefinitionId,
+    if (evidence.displayName.trim().isNotEmpty)
+      'displayName': evidence.displayName.trim(),
+    'applicability': evidence.applicability.apiValue,
+    'cardinality': evidence.cardinality.apiValue,
+    'order': evidence.order,
+  };
 }
 
 String _requiredString(Map<String, dynamic> json, String key) {
@@ -409,10 +410,7 @@ DateTime? _optionalDateTime(Object? value) {
   return DateTime.tryParse(value);
 }
 
-List<Map<String, dynamic>> _listOfMaps(
-  Map<String, dynamic> json,
-  String key,
-) {
+List<Map<String, dynamic>> _listOfMaps(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! List) throw FormatException('Falta la colección $key.');
   return value.map((item) {

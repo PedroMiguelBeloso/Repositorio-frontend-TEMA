@@ -17,11 +17,11 @@ enum M1ProcessCode {
   final String label;
 
   static List<M1ProcessCode> get creatableValues => const [
-        startUp,
-        takeOver,
-        supportSoftwareFactory,
-        qualityContinuousImprovement,
-      ];
+    startUp,
+    takeOver,
+    supportSoftwareFactory,
+    qualityContinuousImprovement,
+  ];
 
   static M1ProcessCode fromApi(String? value) {
     return M1ProcessCode.values.firstWhere(
@@ -63,6 +63,15 @@ enum EvidenceType {
   const EvidenceType(this.apiValue);
   final String apiValue;
 
+  String get label => switch (this) {
+    EvidenceType.document => 'Documento',
+    EvidenceType.folder => 'Carpeta',
+    EvidenceType.ticket => 'Ticket',
+    EvidenceType.imputations => 'Imputaciones',
+    EvidenceType.toolRecord => 'Registro de herramienta',
+    EvidenceType.unknown => 'Tipo no reconocido',
+  };
+
   static EvidenceType fromApi(String? value) {
     return EvidenceType.values.firstWhere(
       (type) => type.apiValue == value,
@@ -79,6 +88,12 @@ enum ApplicabilityMode {
   const ApplicabilityMode(this.apiValue);
   final String apiValue;
 
+  String get label => switch (this) {
+    ApplicabilityMode.always => 'Siempre',
+    ApplicabilityMode.caseDependent => 'Depende del caso',
+    ApplicabilityMode.unknown => 'No reconocido',
+  };
+
   static ApplicabilityMode fromApi(String? value) {
     return ApplicabilityMode.values.firstWhere(
       (mode) => mode.apiValue == value,
@@ -94,6 +109,12 @@ enum EvidenceCardinality {
 
   const EvidenceCardinality(this.apiValue);
   final String apiValue;
+
+  String get label => switch (this) {
+    EvidenceCardinality.one => 'Una',
+    EvidenceCardinality.multiple => 'Una o varias',
+    EvidenceCardinality.unknown => 'No reconocida',
+  };
 
   static EvidenceCardinality fromApi(String? value) {
     return EvidenceCardinality.values.firstWhere(
@@ -151,7 +172,7 @@ class EvidenceExpectation {
     this.officialNomenclature,
   });
 
-  final String id;
+  final String? id;
   final String registryDefinitionId;
   final String displayName;
   final EvidenceType evidenceType;
@@ -161,17 +182,25 @@ class EvidenceExpectation {
   final int order;
   final String? officialNomenclature;
 
-  EvidenceExpectation copyWith({int? order}) {
+  EvidenceExpectation copyWith({
+    int? order,
+    String? registryDefinitionId,
+    String? displayName,
+    EvidenceType? evidenceType,
+    ApplicabilityMode? applicability,
+    EvidenceCardinality? cardinality,
+    String? officialNomenclature,
+  }) {
     return EvidenceExpectation(
       id: id,
-      registryDefinitionId: registryDefinitionId,
-      displayName: displayName,
-      evidenceType: evidenceType,
-      applicability: applicability,
-      cardinality: cardinality,
+      registryDefinitionId: registryDefinitionId ?? this.registryDefinitionId,
+      displayName: displayName ?? this.displayName,
+      evidenceType: evidenceType ?? this.evidenceType,
+      applicability: applicability ?? this.applicability,
+      cardinality: cardinality ?? this.cardinality,
       location: location,
       order: order ?? this.order,
-      officialNomenclature: officialNomenclature,
+      officialNomenclature: officialNomenclature ?? this.officialNomenclature,
     );
   }
 }

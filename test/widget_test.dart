@@ -26,7 +26,7 @@ void main() {
     );
     final router = container.read(appRouterProvider);
     const routes = <(String, String, bool)>[
-      (RouteNames.homePath, 'Inicio', true),
+      (RouteNames.homePath, 'Inicio', false),
       (RouteNames.processesPath, 'Procesos', false),
       ('/processes/process-42', 'Detalle del proceso', false),
       ('/processes/process-42/history', 'Historial de versiones', false),
@@ -298,13 +298,13 @@ void main() {
       session: const Session(role: UserRole.reader),
     );
 
-    await tester.tap(find.byTooltip('Cuenta'));
+    await tester.tap(find.byTooltip('Perfil'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cambiar contraseña'));
     await tester.pumpAndSettle();
     expect(find.text('Cambiar mi contraseña'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Cuenta'));
+    await tester.tap(find.byTooltip('Perfil'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cerrar sesión'));
     await tester.pumpAndSettle();
@@ -370,7 +370,7 @@ void main() {
         session: const Session(role: UserRole.administrator),
       );
 
-      expect(find.byTooltip('Cuenta'), findsOneWidget);
+      expect(find.byTooltip('Perfil'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -405,7 +405,9 @@ Future<ProviderContainer> _pumpApp(
         processStructureRepositoryProvider.overrideWithValue(
           _TestProcessRepository(),
         ),
-        processListViewModelProvider.overrideWith(_TestProcessListViewModel.new),
+        processListViewModelProvider.overrideWith(
+          _TestProcessListViewModel.new,
+        ),
         integrationsRepositoryProvider.overrideWithValue(
           _TestIntegrationsRepository(),
         ),
@@ -419,8 +421,7 @@ Future<ProviderContainer> _pumpApp(
 
 class _TestProcessListViewModel extends ProcessListViewModel {
   @override
-  Future<ProcessListState> build() async =>
-      const ProcessListState(items: []);
+  Future<ProcessListState> build() async => const ProcessListState(items: []);
 }
 
 class _TestIntegrationsRepository implements IntegrationsRepository {

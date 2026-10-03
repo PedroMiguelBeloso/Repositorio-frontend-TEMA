@@ -5,12 +5,152 @@ import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
 import 'package:proyecto_tema_frontend/core/errors/app_failure.dart';
 import 'package:proyecto_tema_frontend/features/processes/data/process_repository_provider.dart';
 import 'package:proyecto_tema_frontend/features/processes/model/process_models.dart';
+import 'package:proyecto_tema_frontend/features/processes/model/registry_definition.dart';
 import 'package:proyecto_tema_frontend/features/processes/viewmodel/process_editor_view_model.dart';
 
 import 'fake_process_repository.dart';
 import 'process_test_fixtures.dart';
 
 void main() {
+  test(
+    'adds input, output and activity record to the same editable draft',
+    () async {
+      final original = sampleProcessVersion();
+      final repository = FakeProcessRepository(
+        definitions: [_definition],
+        versionsByProcess: {
+          _definition.id: [original],
+        },
+      );
+      final container = ProviderContainer(
+        overrides: [processRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      final provider = processEditorViewModelProvider((
+        processId: _definition.id,
+        versionId: original.id,
+      ));
+      await container.read(provider.future);
+      final notifier = container.read(provider.notifier);
+      const highlight = RegistryDefinition(
+        id: 'highlight-definition',
+        key: 'HIGHLIGHTS',
+        canonicalName: 'Highlights',
+        evidenceType: EvidenceType.document,
+        preloaded: true,
+        officialNomenclature: 'Highlights',
+      );
+
+      expect(
+        notifier.addEvidence(
+          macroKey: 'macro-1',
+          location: EvidenceLocation.input,
+          definition: highlight,
+          displayName: 'Highlights',
+          applicability: ApplicabilityMode.always,
+          cardinality: EvidenceCardinality.one,
+        ),
+        isTrue,
+      );
+      expect(
+        notifier.addEvidence(
+          macroKey: 'macro-1',
+          location: EvidenceLocation.output,
+          definition: highlight,
+          displayName: 'Highlights',
+          applicability: ApplicabilityMode.always,
+          cardinality: EvidenceCardinality.one,
+        ),
+        isTrue,
+      );
+      expect(
+        notifier.addEvidence(
+          macroKey: 'macro-1',
+          activityKey: 'activity-1',
+          location: EvidenceLocation.activityRecord,
+          definition: highlight,
+          displayName: 'Highlights',
+          applicability: ApplicabilityMode.always,
+          cardinality: EvidenceCardinality.one,
+        ),
+        isTrue,
+      );
+
+      final macro = container
+          .read(provider)
+          .value!
+          .version
+          .macroActivities
+          .single;
+      expect(macro.inputs.length, 2);
+      expect(macro.outputs.length, 2);
+      expect(macro.activities.single.records.length, 2);
+      expect(macro.inputs.last.id, isNull);
+      expect(await notifier.save(), isTrue);
+      expect(
+        repository
+            .submittedVersion!
+            .macroActivities
+            .single
+            .inputs
+            .last
+            .registryDefinitionId,
+        highlight.id,
+      );
+    },
+  );
+
+  test('rejects a second ticket input before saving', () async {
+    final original = sampleProcessVersion();
+    final repository = FakeProcessRepository(
+      definitions: [_definition],
+      versionsByProcess: {
+        _definition.id: [original],
+      },
+    );
+    final container = ProviderContainer(
+      overrides: [processRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    final provider = processEditorViewModelProvider((
+      processId: _definition.id,
+      versionId: original.id,
+    ));
+    await container.read(provider.future);
+    const ticket = RegistryDefinition(
+      id: 'ticket-definition',
+      key: 'TICKET',
+      canonicalName: 'Ticket',
+      evidenceType: EvidenceType.ticket,
+      preloaded: true,
+    );
+    final notifier = container.read(provider.notifier);
+    expect(
+      notifier.addEvidence(
+        macroKey: 'macro-1',
+        location: EvidenceLocation.input,
+        definition: ticket,
+        displayName: 'Ticket',
+        applicability: ApplicabilityMode.always,
+        cardinality: EvidenceCardinality.one,
+      ),
+      isTrue,
+    );
+    final added = notifier.addEvidence(
+      macroKey: 'macro-1',
+      location: EvidenceLocation.input,
+      definition: ticket,
+      displayName: 'Otro ticket',
+      applicability: ApplicabilityMode.always,
+      cardinality: EvidenceCardinality.one,
+    );
+    expect(added, isFalse);
+    expect(
+      container.read(provider).value!.actionFailure,
+      isA<ValidationFailure>(),
+    );
+    expect(repository.submittedVersion, isNull);
+  });
   test(
     'loading and saving a draft preserves node IDs and existing evidences',
     () async {
@@ -22,9 +162,7 @@ void main() {
         },
       );
       final container = ProviderContainer(
-        overrides: [
-          processRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [processRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
 
@@ -49,7 +187,10 @@ void main() {
       expect(submitted.revision, 7);
       expect(submitted.policies.single.id, 'policy-1');
       expect(submitted.macroActivities.single.id, 'macro-1');
-      expect(submitted.macroActivities.single.activities.single.id, 'activity-1');
+      expect(
+        submitted.macroActivities.single.activities.single.id,
+        'activity-1',
+      );
       expect(submitted.macroActivities.single.inputs.single.id, 'input-1');
       expect(
         submitted.macroActivities.single.activities.single.records.single.id,
@@ -78,9 +219,7 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [
-          processRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [processRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
 
@@ -102,34 +241,42 @@ void main() {
     },
   );
 
-  test('publishes the saved revision and switches the editor to read only', () async {
-    final original = sampleProcessVersion();
-    final repository = FakeProcessRepository(
-      definitions: [_definition],
-      versionsByProcess: {
-        _definition.id: [original],
-      },
-    );
-    final container = ProviderContainer(
-      overrides: [
-        processRepositoryProvider.overrideWithValue(repository),
-        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.administrator)),
-      ],
-    );
-    addTearDown(container.dispose);
-    final provider = processEditorViewModelProvider((
-      processId: _definition.id,
-      versionId: original.id,
-    ));
-    await container.read(provider.future);
+  test(
+    'publishes the saved revision and switches the editor to read only',
+    () async {
+      final original = sampleProcessVersion();
+      final repository = FakeProcessRepository(
+        definitions: [_definition],
+        versionsByProcess: {
+          _definition.id: [original],
+        },
+      );
+      final container = ProviderContainer(
+        overrides: [
+          processRepositoryProvider.overrideWithValue(repository),
+          sessionProvider.overrideWith(
+            () => _TestSessionNotifier(UserRole.administrator),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final provider = processEditorViewModelProvider((
+        processId: _definition.id,
+        versionId: original.id,
+      ));
+      await container.read(provider.future);
 
-    final notifier = container.read(provider.notifier);
-    expect(await notifier.publish(), isTrue);
-    expect(repository.publishedVersion?.revision, 8);
-    expect(container.read(provider).value!.version.status, ProcessVersionStatus.published);
-    expect(container.read(provider).value!.version.publishedAt, isNotNull);
-    expect(notifier.hasUnsavedChanges, isFalse);
-  });
+      final notifier = container.read(provider.notifier);
+      expect(await notifier.publish(), isTrue);
+      expect(repository.publishedVersion?.revision, 8);
+      expect(
+        container.read(provider).value!.version.status,
+        ProcessVersionStatus.published,
+      );
+      expect(container.read(provider).value!.version.publishedAt, isNotNull);
+      expect(notifier.hasUnsavedChanges, isFalse);
+    },
+  );
 
   test('refuses to publish local edits before they are saved', () async {
     final original = sampleProcessVersion();
@@ -142,7 +289,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         processRepositoryProvider.overrideWithValue(repository),
-        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.administrator)),
+        sessionProvider.overrideWith(
+          () => _TestSessionNotifier(UserRole.administrator),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -157,7 +306,10 @@ void main() {
 
     expect(await notifier.publish(), isFalse);
     expect(repository.publishedVersion, isNull);
-    expect(container.read(provider).value!.version.status, ProcessVersionStatus.draft);
+    expect(
+      container.read(provider).value!.version.status,
+      ProcessVersionStatus.draft,
+    );
     expect(notifier.hasUnsavedChanges, isTrue);
   });
 
@@ -173,7 +325,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         processRepositoryProvider.overrideWithValue(repository),
-        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.administrator)),
+        sessionProvider.overrideWith(
+          () => _TestSessionNotifier(UserRole.administrator),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -210,7 +364,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         processRepositoryProvider.overrideWithValue(repository),
-        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.administrator)),
+        sessionProvider.overrideWith(
+          () => _TestSessionNotifier(UserRole.administrator),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -227,10 +383,9 @@ void main() {
       state.validationErrors.values,
       contains('Completá las instrucciones.'),
     );
-    expect(
-      state.validationSummary,
-      ['macroActivities[0].inputs[0].officialNomenclature: Falta la nomenclatura.'],
-    );
+    expect(state.validationSummary, [
+      'macroActivities[0].inputs[0].officialNomenclature: Falta la nomenclatura.',
+    ]);
   });
 
   test('a reader cannot publish a draft', () async {
@@ -244,7 +399,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         processRepositoryProvider.overrideWithValue(repository),
-        sessionProvider.overrideWith(() => _TestSessionNotifier(UserRole.reader)),
+        sessionProvider.overrideWith(
+          () => _TestSessionNotifier(UserRole.reader),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -255,7 +412,10 @@ void main() {
     await container.read(provider.future);
 
     expect(await container.read(provider.notifier).publish(), isFalse);
-    expect(container.read(provider).value!.actionFailure, isA<PermissionFailure>());
+    expect(
+      container.read(provider).value!.actionFailure,
+      isA<PermissionFailure>(),
+    );
     expect(repository.publishedVersion, isNull);
   });
 }

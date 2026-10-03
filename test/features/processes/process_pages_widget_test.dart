@@ -7,7 +7,10 @@ import 'package:proyecto_tema_frontend/app/router/route_names.dart';
 import 'package:proyecto_tema_frontend/core/auth/session.dart';
 import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
 import 'package:proyecto_tema_frontend/features/processes/data/process_repository_provider.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/registry_repository.dart';
+import 'package:proyecto_tema_frontend/features/processes/data/registry_repository_impl.dart';
 import 'package:proyecto_tema_frontend/features/processes/model/process_models.dart';
+import 'package:proyecto_tema_frontend/features/processes/model/registry_definition.dart';
 import 'package:proyecto_tema_frontend/features/processes/view/process_editor_page.dart';
 import 'package:proyecto_tema_frontend/features/processes/view/process_list_page.dart';
 
@@ -15,6 +18,74 @@ import 'fake_process_repository.dart';
 import 'process_test_fixtures.dart';
 
 void main() {
+  testWidgets('administrator can create an activity from the macro detail',
+      (tester) async {
+    final version = sampleProcessVersion();
+    final repository = FakeProcessRepository(
+      definitions: [_definition],
+      versionsByProcess: {_definition.id: [version]},
+    );
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        processRepositoryProvider.overrideWithValue(repository),
+        sessionProvider.overrideWith(() => _TestSessionNotifier(
+            const Session(role: UserRole.administrator))),
+      ],
+      child: MaterialApp(home: ProcessEditorPage(
+        processId: _definition.id,
+        versionId: version.id,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Estructura'));
+    await tester.pumpAndSettle();
+    final addActivity = find.text('Agregar actividad').last;
+    await tester.ensureVisible(addActivity);
+    await tester.tap(addActivity);
+    await tester.pumpAndSettle();
+    expect(find.text('Nombre de la actividad'), findsOneWidget);
+    expect(find.text('Registros de la actividad'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('administrator adds an input from the registry in the main editor',
+      (tester) async {
+    final version = sampleProcessVersion();
+    final repository = FakeProcessRepository(
+      definitions: [_definition],
+      versionsByProcess: {_definition.id: [version]},
+    );
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        processRepositoryProvider.overrideWithValue(repository),
+        registryRepositoryProvider.overrideWithValue(_FakeRegistryRepository()),
+        sessionProvider.overrideWith(() => _TestSessionNotifier(
+            const Session(role: UserRole.administrator))),
+      ],
+      child: MaterialApp(home: ProcessEditorPage(
+        processId: _definition.id,
+        versionId: version.id,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Estructura'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Agregar entrada'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Agregar entrada'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Elegir del índice de registros'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Highlights').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Guardar').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Highlights'), findsWidgets);
+    expect(find.text('Entradas'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'new-process selector shows the four visible names and sends the selected internal code',
     (tester) async {
@@ -196,4 +267,24 @@ class _TestSessionNotifier extends SessionNotifier {
 
   @override
   Session? build() => initialSession;
+}
+
+class _FakeRegistryRepository implements RegistryRepository {
+  static const highlight = RegistryDefinition(
+    id: 'registry-highlights',
+    key: 'HIGHLIGHTS',
+    canonicalName: 'Highlights',
+    evidenceType: EvidenceType.document,
+    officialNomenclature: 'Highlights',
+    preloaded: true,
+  );
+
+  @override
+  Future<RegistryPage> search({String query = '', int page = 0, int size = 20})
+      async => RegistryPage(items: [highlight], page: 0, totalPages: 1);
+
+  @override
+  Future<RegistryDefinition> create({required String canonicalName,
+      required EvidenceType evidenceType, String? officialNomenclature}) async =>
+      highlight;
 }

@@ -7,6 +7,8 @@ abstract final class RouteNames {
 
   static const processesName = 'processes';
   static const processesPath = '/processes';
+  static const registryName = 'registry';
+  static const registryPath = '/settings/registry';
   static const processDetailsName = 'process-details';
   static const processDetailsPath = '/processes/:id';
   static const processHistoryName = 'process-history';
