@@ -387,6 +387,7 @@ void main() {
 
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
+    expect(tester.getTopLeft(find.byTooltip('Perfil')).dy, greaterThan(650));
     expect(tester.takeException(), isNull);
   });
 }
