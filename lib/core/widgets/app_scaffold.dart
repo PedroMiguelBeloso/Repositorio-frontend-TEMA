@@ -16,6 +16,19 @@ class AppScaffold extends ConsumerWidget {
     final isAdministrator = ref.watch(sessionProvider)?.isAdmin == true;
     final destinations = _destinations(isAdministrator);
     final selectedIndex = _selectedIndex(context, isAdministrator);
+    final mobileDestinations = [
+      destinations[0],
+      destinations[1],
+      destinations[3],
+      destinations[4],
+    ];
+    final mobileSelected = switch (selectedIndex) {
+      0 => 0,
+      1 => 1,
+      3 => 2,
+      4 => 3,
+      _ => 0,
+    };
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -28,16 +41,38 @@ class AppScaffold extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: NavigationBar(
-                      selectedIndex: selectedIndex,
+                      selectedIndex: mobileSelected,
                       onDestinationSelected: (index) =>
-                          context.go(destinations[index].path),
+                          context.go(mobileDestinations[index].path),
                       destinations: [
-                        for (final destination in destinations)
+                        for (final destination in mobileDestinations)
                           NavigationDestination(
                             icon: Icon(destination.icon),
                             label: destination.label,
                           ),
                       ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Más opciones',
+                    onSelected: context.go,
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: RouteNames.registryPath,
+                        child: Text('Índice de registros'),
+                      ),
+                      if (isAdministrator)
+                        const PopupMenuItem(
+                          value: RouteNames.integrationsPath,
+                          child: Text('Integraciones'),
+                        ),
+                    ],
+                    child: const SizedBox(
+                      width: 54,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [Icon(Icons.more_horiz), Text('Más')],
+                      ),
                     ),
                   ),
                   _accountMenu(context, ref),
@@ -82,8 +117,14 @@ class AppScaffold extends ConsumerWidget {
 
   Widget _accountMenu(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<_AccountAction>(
-      tooltip: 'Cuenta',
-      icon: const Icon(Icons.account_circle_outlined),
+      tooltip: 'Perfil',
+      child: const SizedBox(
+        width: 64,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [Icon(Icons.account_circle_outlined), Text('Perfil')],
+        ),
+      ),
       onSelected: (action) {
         switch (action) {
           case _AccountAction.changePassword:
@@ -117,6 +158,11 @@ class AppScaffold extends ConsumerWidget {
       icon: Icons.account_tree_outlined,
     ),
     const _NavigationDestination(
+      label: 'Registros',
+      path: RouteNames.registryPath,
+      icon: Icons.menu_book_outlined,
+    ),
+    const _NavigationDestination(
       label: 'Servicios',
       path: RouteNames.servicesPath,
       icon: Icons.miscellaneous_services_outlined,
@@ -137,9 +183,10 @@ class AppScaffold extends ConsumerWidget {
   int _selectedIndex(BuildContext context, bool isAdministrator) {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith(RouteNames.processesPath)) return 1;
-    if (location.startsWith(RouteNames.servicesPath)) return 2;
-    if (location.startsWith(RouteNames.verificationsPath)) return 3;
-    if (isAdministrator && location == RouteNames.integrationsPath) return 4;
+    if (location == RouteNames.registryPath) return 2;
+    if (location.startsWith(RouteNames.servicesPath)) return 3;
+    if (location.startsWith(RouteNames.verificationsPath)) return 4;
+    if (isAdministrator && location == RouteNames.integrationsPath) return 5;
     return 0;
   }
 }

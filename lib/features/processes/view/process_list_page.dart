@@ -25,6 +25,18 @@ class ProcessListPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Procesos'),
         actions: [
+          if (MediaQuery.sizeOf(context).width < 700)
+            IconButton(
+              tooltip: 'Índice de registros',
+              onPressed: () => context.go(RouteNames.registryPath),
+              icon: const Icon(Icons.menu_book_outlined),
+            )
+          else
+            TextButton.icon(
+              onPressed: () => context.go(RouteNames.registryPath),
+              icon: const Icon(Icons.menu_book_outlined),
+              label: const Text('Índice de registros'),
+            ),
           if (isAdmin &&
               (asyncState.value?.items.isNotEmpty ?? false) &&
               (asyncState.value?.availableCodes.isNotEmpty ?? false)) ...[
@@ -70,9 +82,8 @@ class ProcessListPage extends ConsumerWidget {
                 ),
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: () => ref
-                      .read(processListViewModelProvider.notifier)
-                      .refresh(),
+                  onRefresh: () =>
+                      ref.read(processListViewModelProvider.notifier).refresh(),
                   child: ListView.separated(
                     padding: const EdgeInsets.all(AppSpacing.xl),
                     itemCount: data.items.length,
@@ -93,10 +104,8 @@ class ProcessListPage extends ConsumerWidget {
                             version.id,
                           ),
                         ),
-                        onStartDraft: () => _openStartDraftDialog(
-                          context,
-                          overview.definition,
-                        ),
+                        onStartDraft: () =>
+                            _openStartDraftDialog(context, overview.definition),
                       );
                     },
                   ),
@@ -217,12 +226,12 @@ class _ProcessCard extends StatelessWidget {
                     ),
                   )
                 : isAdmin && overview.canStartFirstDraft
-                    ? FilledButton.icon(
-                        onPressed: isBusy ? null : onStartDraft,
-                        icon: const Icon(Icons.note_add_outlined),
-                        label: const Text('Iniciar borrador'),
-                      )
-                    : null;
+                ? FilledButton.icon(
+                    onPressed: isBusy ? null : onStartDraft,
+                    icon: const Icon(Icons.note_add_outlined),
+                    label: const Text('Iniciar borrador'),
+                  )
+                : null;
             final actions = Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
@@ -472,8 +481,8 @@ class _NewProcessDialogState extends ConsumerState<_NewProcessDialog> {
           onPressed: busy
               ? null
               : definition == null
-                  ? _createDefinition
-                  : _startDraft,
+              ? _createDefinition
+              : _startDraft,
           child: busy
               ? const SizedBox(
                   width: 20,
@@ -496,7 +505,10 @@ class _NewProcessDialogState extends ConsumerState<_NewProcessDialog> {
         .read(processListViewModelProvider.notifier)
         .createDefinition(code);
     if (!mounted || created == null) {
-      final available = ref.read(processListViewModelProvider).value?.availableCodes;
+      final available = ref
+          .read(processListViewModelProvider)
+          .value
+          ?.availableCodes;
       if (available != null && !available.contains(code)) {
         setState(() => _selectedCode = null);
       }
@@ -529,9 +541,9 @@ class _NewProcessDialogState extends ConsumerState<_NewProcessDialog> {
           versionDate: date,
         );
     if (!mounted || created == null) return;
-    Navigator.of(context).pop(
-      _DraftCreatedResult(processId: definition.id, versionId: created.id),
-    );
+    Navigator.of(
+      context,
+    ).pop(_DraftCreatedResult(processId: definition.id, versionId: created.id));
   }
 }
 
@@ -709,8 +721,8 @@ class _DialogError extends StatelessWidget {
     return Text(
       message,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.error,
-          ),
+        color: Theme.of(context).colorScheme.error,
+      ),
     );
   }
 }

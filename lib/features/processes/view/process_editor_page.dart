@@ -29,21 +29,20 @@ class ProcessEditorPage extends ConsumerStatefulWidget {
 }
 
 class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
-  ProcessEditorKey get _providerKey => (
-        processId: widget.processId,
-        versionId: widget.versionId,
-      );
+  ProcessEditorKey get _providerKey =>
+      (processId: widget.processId, versionId: widget.versionId);
 
   @override
   Widget build(BuildContext context) {
     final asyncState = ref.watch(processEditorViewModelProvider(_providerKey));
-    final notifier = ref.read(processEditorViewModelProvider(_providerKey).notifier);
+    final notifier = ref.read(
+      processEditorViewModelProvider(_providerKey).notifier,
+    );
     final dirty = notifier.hasUnsavedChanges;
 
     return asyncState.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, _) => Scaffold(
         appBar: AppBar(title: const Text('Proceso')),
         body: AppErrorView(
@@ -68,7 +67,9 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
     final session = ref.watch(sessionProvider);
     final canEdit = session?.isAdmin == true && state.version.status.isDraft;
     final isBusy = state.isSaving || state.isPublishing;
-    final notifier = ref.read(processEditorViewModelProvider(_providerKey).notifier);
+    final notifier = ref.read(
+      processEditorViewModelProvider(_providerKey).notifier,
+    );
 
     return DefaultTabController(
       length: 3,
@@ -93,11 +94,7 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
         ),
         body: Column(
           children: [
-            _EditorHeader(
-              state: state,
-              canEdit: canEdit,
-              dirty: dirty,
-            ),
+            _EditorHeader(state: state, canEdit: canEdit, dirty: dirty),
             if (state.actionFailure != null)
               _EditorFailureBanner(
                 failure: state.actionFailure!,
@@ -108,9 +105,7 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
                 validationSummary: state.validationSummary,
               ),
             if (state.saveSucceeded)
-              const _SuccessBanner(
-                message: 'Borrador guardado correctamente.',
-              ),
+              const _SuccessBanner(message: 'Borrador guardado correctamente.'),
             Expanded(
               child: TabBarView(
                 children: [
@@ -135,6 +130,7 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
                   ),
                   _StructureTab(
                     state: state,
+                    notifier: notifier,
                     readOnly: !canEdit || isBusy,
                     onSelectMacro: notifier.selectMacroActivity,
                     onSelectActivity: notifier.selectActivity,
@@ -143,22 +139,22 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
                         _deleteMacroActivity(context, notifier, macro),
                     onMoveMacro: notifier.moveMacroActivity,
                     onAddActivity: notifier.addActivity,
-                    onDeleteActivity: ({
-                      required macroKey,
-                      required activityKey,
-                    }) => notifier.removeActivity(
-                      macroKey: macroKey,
-                      activityKey: activityKey,
-                    ),
-                    onMoveActivity: ({
-                      required macroKey,
-                      required activityKey,
-                      required delta,
-                    }) => notifier.moveActivity(
-                      macroKey: macroKey,
-                      activityKey: activityKey,
-                      delta: delta,
-                    ),
+                    onDeleteActivity:
+                        ({required macroKey, required activityKey}) =>
+                            notifier.removeActivity(
+                              macroKey: macroKey,
+                              activityKey: activityKey,
+                            ),
+                    onMoveActivity:
+                        ({
+                          required macroKey,
+                          required activityKey,
+                          required delta,
+                        }) => notifier.moveActivity(
+                          macroKey: macroKey,
+                          activityKey: activityKey,
+                          delta: delta,
+                        ),
                     onMacroChanged: notifier.updateMacroActivity,
                     onActivityChanged: notifier.updateActivity,
                   ),
@@ -259,7 +255,9 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
       if (!await notifier.save() || !context.mounted) return;
     }
 
-    final current = ref.read(processEditorViewModelProvider(_providerKey)).value;
+    final current = ref
+        .read(processEditorViewModelProvider(_providerKey))
+        .value;
     if (current == null || !context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -294,9 +292,9 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
     final date = publishedAt == null
         ? ''
         : ' · ${DateFormat('dd/MM/yyyy HH:mm').format(publishedAt)}';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Publicada$date')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Publicada$date')));
   }
 
   Future<void> _reloadAfterConflict(
@@ -365,8 +363,6 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
     );
     if (confirmed == true) notifier.removeMacroActivity(macro.localKey);
   }
-
-
 }
 
 class _EditorHeader extends StatelessWidget {
@@ -549,6 +545,7 @@ class _SuccessBanner extends StatelessWidget {
 class _StructureTab extends StatelessWidget {
   const _StructureTab({
     required this.state,
+    required this.notifier,
     required this.readOnly,
     required this.onSelectMacro,
     required this.onSelectActivity,
@@ -563,6 +560,7 @@ class _StructureTab extends StatelessWidget {
   });
 
   final ProcessEditorState state;
+  final ProcessEditorViewModel notifier;
   final bool readOnly;
   final ValueChanged<String> onSelectMacro;
   final void Function(String macroKey, String activityKey) onSelectActivity;
@@ -570,20 +568,20 @@ class _StructureTab extends StatelessWidget {
   final ValueChanged<ProcessMacroActivity> onDeleteMacro;
   final void Function(String macroKey, int delta) onMoveMacro;
   final ValueChanged<String> onAddActivity;
-  final void Function({
-    required String macroKey,
-    required String activityKey,
-  }) onDeleteActivity;
+  final void Function({required String macroKey, required String activityKey})
+  onDeleteActivity;
   final void Function({
     required String macroKey,
     required String activityKey,
     required int delta,
-  }) onMoveActivity;
+  })
+  onMoveActivity;
   final void Function({
     required String macroKey,
     String? name,
     String? description,
-  }) onMacroChanged;
+  })
+  onMacroChanged;
   final void Function({
     required String macroKey,
     required String activityKey,
@@ -591,7 +589,8 @@ class _StructureTab extends StatelessWidget {
     String? responsible,
     String? instructions,
     String? etaText,
-  }) onActivityChanged;
+  })
+  onActivityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -605,10 +604,8 @@ class _StructureTab extends StatelessWidget {
       onDeleteMacro: onDeleteMacro,
       onMoveMacro: onMoveMacro,
       onAddActivity: onAddActivity,
-      onDeleteActivity: (macroKey, activityKey) => onDeleteActivity(
-        macroKey: macroKey,
-        activityKey: activityKey,
-      ),
+      onDeleteActivity: (macroKey, activityKey) =>
+          onDeleteActivity(macroKey: macroKey, activityKey: activityKey),
       onMoveActivity: (macroKey, activityKey, delta) => onMoveActivity(
         macroKey: macroKey,
         activityKey: activityKey,
@@ -617,6 +614,7 @@ class _StructureTab extends StatelessWidget {
     );
     final detail = ProcessStructureDetail(
       state: state,
+      notifier: notifier,
       readOnly: readOnly,
       onMacroChanged: onMacroChanged,
       onActivityChanged: onActivityChanged,

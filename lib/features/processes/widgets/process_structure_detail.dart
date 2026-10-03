@@ -4,6 +4,7 @@ import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../model/process_models.dart';
 import '../viewmodel/process_editor_view_model.dart';
+import 'process_evidence_section.dart';
 
 class ProcessStructureDetail extends StatelessWidget {
   const ProcessStructureDetail({
@@ -12,15 +13,18 @@ class ProcessStructureDetail extends StatelessWidget {
     required this.readOnly,
     required this.onMacroChanged,
     required this.onActivityChanged,
+    required this.notifier,
   });
 
   final ProcessEditorState state;
   final bool readOnly;
+  final ProcessEditorViewModel notifier;
   final void Function({
     required String macroKey,
     String? name,
     String? description,
-  }) onMacroChanged;
+  })
+  onMacroChanged;
   final void Function({
     required String macroKey,
     required String activityKey,
@@ -28,7 +32,8 @@ class ProcessStructureDetail extends StatelessWidget {
     String? responsible,
     String? instructions,
     String? etaText,
-  }) onActivityChanged;
+  })
+  onActivityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +43,8 @@ class ProcessStructureDetail extends StatelessWidget {
     if (macro == null) {
       return const Card(
         child: EmptyState(
-          message: 'Seleccioná una macroactividad o actividad para ver su detalle.',
+          message:
+              'Seleccioná una macroactividad o actividad para ver su detalle.',
           icon: Icons.touch_app_outlined,
         ),
       );
@@ -51,24 +57,28 @@ class ProcessStructureDetail extends StatelessWidget {
             ? _MacroActivityForm(
                 macro: macro,
                 readOnly: readOnly,
-                errorText: state.validationErrors[
-                  ProcessEditorFieldKeys.macroName(macro.localKey)
-                ],
+                errorText:
+                    state.validationErrors[ProcessEditorFieldKeys.macroName(
+                      macro.localKey,
+                    )],
                 onChanged: onMacroChanged,
+                notifier: notifier,
               )
             : _ActivityForm(
                 macro: macro,
                 activity: activity,
                 readOnly: readOnly,
-                nameError: state.validationErrors[
-                  ProcessEditorFieldKeys.activityName(activity.localKey)
-                ],
-                instructionsError: state.validationErrors[
-                  ProcessEditorFieldKeys.activityInstructions(
-                    activity.localKey,
-                  )
-                ],
+                nameError:
+                    state.validationErrors[ProcessEditorFieldKeys.activityName(
+                      activity.localKey,
+                    )],
+                instructionsError:
+                    state
+                        .validationErrors[ProcessEditorFieldKeys.activityInstructions(
+                      activity.localKey,
+                    )],
                 onChanged: onActivityChanged,
+                notifier: notifier,
               ),
       ),
     );
@@ -81,16 +91,19 @@ class _MacroActivityForm extends StatelessWidget {
     required this.readOnly,
     required this.errorText,
     required this.onChanged,
+    required this.notifier,
   });
 
   final ProcessMacroActivity macro;
+  final ProcessEditorViewModel notifier;
   final bool readOnly;
   final String? errorText;
   final void Function({
     required String macroKey,
     String? name,
     String? description,
-  }) onChanged;
+  })
+  onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +111,21 @@ class _MacroActivityForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Macroactividad', style: theme.textTheme.titleLarge),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            Text('Macroactividad', style: theme.textTheme.titleLarge),
+            if (!readOnly)
+              OutlinedButton.icon(
+                onPressed: () => notifier.addActivity(macro.localKey),
+                icon: const Icon(Icons.add),
+                label: const Text('Agregar actividad'),
+              ),
+          ],
+        ),
         const SizedBox(height: AppSpacing.lg),
         if (readOnly) ...[
           _ReadOnlyValue(label: 'Nombre', value: macro.name),
@@ -111,10 +138,8 @@ class _MacroActivityForm extends StatelessWidget {
               labelText: 'Nombre de la macroactividad',
               errorText: errorText,
             ),
-            onChanged: (value) => onChanged(
-              macroKey: macro.localKey,
-              name: value,
-            ),
+            onChanged: (value) =>
+                onChanged(macroKey: macro.localKey, name: value),
           ),
           const SizedBox(height: AppSpacing.md),
           TextFormField(
@@ -126,23 +151,27 @@ class _MacroActivityForm extends StatelessWidget {
               labelText: 'Descripción (opcional)',
               alignLabelWithHint: true,
             ),
-            onChanged: (value) => onChanged(
-              macroKey: macro.localKey,
-              description: value,
-            ),
+            onChanged: (value) =>
+                onChanged(macroKey: macro.localKey, description: value),
           ),
         ],
         const SizedBox(height: AppSpacing.lg),
-        Text(
-          'Evidencias asociadas',
-          style: theme.textTheme.titleMedium,
+        ProcessEvidenceSection(
+          title: 'Entradas',
+          location: EvidenceLocation.input,
+          items: macro.inputs,
+          macroKey: macro.localKey,
+          notifier: notifier,
+          readOnly: readOnly,
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          'Entradas: ${macro.inputs.length} · '
-          'Salidas: ${macro.outputs.length}. '
-          'Se conservan al guardar este borrador.',
-          style: theme.textTheme.bodySmall,
+        const SizedBox(height: AppSpacing.lg),
+        ProcessEvidenceSection(
+          title: 'Salidas',
+          location: EvidenceLocation.output,
+          items: macro.outputs,
+          macroKey: macro.localKey,
+          notifier: notifier,
+          readOnly: readOnly,
         ),
       ],
     );
@@ -157,10 +186,12 @@ class _ActivityForm extends StatelessWidget {
     required this.nameError,
     required this.instructionsError,
     required this.onChanged,
+    required this.notifier,
   });
 
   final ProcessMacroActivity macro;
   final ProcessActivity activity;
+  final ProcessEditorViewModel notifier;
   final bool readOnly;
   final String? nameError;
   final String? instructionsError;
@@ -171,7 +202,8 @@ class _ActivityForm extends StatelessWidget {
     String? responsible,
     String? instructions,
     String? etaText,
-  }) onChanged;
+  })
+  onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +223,9 @@ class _ActivityForm extends StatelessWidget {
           ),
         ] else ...[
           TextFormField(
-            key: ValueKey('activity-name-${activity.localKey}-${activity.id ?? 'new'}'),
+            key: ValueKey(
+              'activity-name-${activity.localKey}-${activity.id ?? 'new'}',
+            ),
             initialValue: activity.name,
             decoration: InputDecoration(
               labelText: 'Nombre de la actividad',
@@ -248,12 +282,14 @@ class _ActivityForm extends StatelessWidget {
           ),
         ],
         const SizedBox(height: AppSpacing.lg),
-        Text('Registros de actividad', style: theme.textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          '${activity.records.length} registro(s) asociado(s). '
-          'Se conservan al guardar.',
-          style: theme.textTheme.bodySmall,
+        ProcessEvidenceSection(
+          title: 'Registros de la actividad',
+          location: EvidenceLocation.activityRecord,
+          items: activity.records,
+          macroKey: macro.localKey,
+          activityKey: activity.localKey,
+          notifier: notifier,
+          readOnly: readOnly,
         ),
       ],
     );

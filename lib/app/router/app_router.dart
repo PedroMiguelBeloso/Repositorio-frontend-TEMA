@@ -8,15 +8,18 @@ import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/placeholder_page.dart';
 import '../../features/auth/view/change_password_page.dart';
 import '../../features/auth/view/login_page.dart';
+import '../../features/home/view/home_page.dart';
 import '../../features/integrations/view/integrations_page.dart';
 import '../../features/users/view/create_reader_page.dart';
 import '../../features/users/view/users_page.dart';
 import '../../features/processes/view/process_pages.dart';
+import '../../features/processes/view/registry_index_page.dart';
 import '../../features/processes/view/process_editor_page.dart' as m1_editor;
-import '../../features/processes/view/process_version_history_page.dart' as m1_history;
+import '../../features/processes/view/process_version_history_page.dart'
+    as m1_history;
 import '../../features/processes/view/process_list_page.dart' as m1_list;
 import '../../features/processes/viewmodel/process_editor_view_model.dart'
-  as m1_editor_vm;
+    as m1_editor_vm;
 import '../../features/services/view/service_detail_page.dart';
 import '../../features/services/view/service_form_page.dart';
 import '../../features/services/view/service_list_page.dart';
@@ -72,7 +75,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.homeName,
             path: RouteNames.homePath,
-            builder: (context, state) => const PlaceholderPage(title: 'Inicio'),
+            builder: (context, state) => const HomePage(),
+          ),
+          GoRoute(
+            name: RouteNames.registryName,
+            path: RouteNames.registryPath,
+            builder: (context, state) => const RegistryIndexPage(),
           ),
           GoRoute(
             name: RouteNames.processesName,
@@ -88,10 +96,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.processHistoryName,
             path: RouteNames.processHistoryPath,
-            builder: (context, state) =>
-                m1_history.ProcessVersionHistoryPage(
-                  processId: state.pathParameters['id']!,
-                ),
+            builder: (context, state) => m1_history.ProcessVersionHistoryPage(
+              processId: state.pathParameters['id']!,
+            ),
           ),
           GoRoute(
             name: RouteNames.processStructureName,
@@ -135,8 +142,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         ),
                         FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.error,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
                           ),
                           onPressed: () => Navigator.of(context).pop(true),
                           child: const Text('Salir sin guardar'),
