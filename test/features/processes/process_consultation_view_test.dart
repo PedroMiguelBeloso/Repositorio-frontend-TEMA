@@ -35,6 +35,15 @@ void main() {
               instructions:
                   '1- Analizar la propuesta.\n2- Actualizar Capacity.',
             ),
+            const ProcessActivity(
+              localKey: 'activity-2',
+              name: 'Comunicar asignación',
+              responsible: 'Responsable de Operaciones',
+              instructions: 'Enviar aviso.',
+              etaText: 'Al inicio',
+              order: 1,
+              records: [],
+            ),
           ],
         );
         final communication = ProcessMacroActivity(
@@ -87,6 +96,16 @@ void main() {
         expect(find.text('Macroactividad 1'), findsOneWidget);
         expect(find.text('Asignar responsable del servicio'), findsOneWidget);
         expect(find.text('Macroactividad 2'), findsOneWidget);
+        expect(find.byType(Scrollbar), findsOneWidget);
+        expect(find.byKey(const Key('activity-divider-1')), findsOneWidget);
+        expect(
+          find.textContaining('Responsable: Responsable vigente'),
+          findsOneWidget,
+        );
+        await tester.ensureVisible(find.text('input-1'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Cuándo aplica: Siempre'), findsWidgets);
+        expect(find.textContaining('Cantidad requerida: Una'), findsWidgets);
         expect(
           tester.getTopLeft(find.text('Objetivo')).dy,
           lessThan(tester.getTopLeft(find.text('Políticas del proceso')).dy),

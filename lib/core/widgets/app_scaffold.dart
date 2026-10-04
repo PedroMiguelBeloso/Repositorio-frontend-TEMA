@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/router/route_names.dart';
 import '../../app/theme/app_theme.dart';
 import '../auth/session_provider.dart';
+import 'account_menu.dart';
 
 class AppScaffold extends ConsumerWidget {
   const AppScaffold({super.key, required this.child});
@@ -75,7 +76,7 @@ class AppScaffold extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  _accountMenu(context, ref),
+                  _accountMenu(context, ref, alignRight: true),
                   const SizedBox(width: AppSpacing.xs),
                 ],
               ),
@@ -125,6 +126,7 @@ class AppScaffold extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     bool expanded = false,
+    bool alignRight = false,
   }) {
     final session = ref.watch(sessionProvider);
     final userName = session?.user?.displayName.trim().isNotEmpty == true
@@ -132,142 +134,14 @@ class AppScaffold extends ConsumerWidget {
         : 'Mi cuenta';
     final email = session?.user?.email ?? '';
     final role = session?.isAdmin == true ? 'Administrador' : 'Lector';
-    return PopupMenuButton<_AccountAction>(
-      tooltip: 'Perfil',
-      position: PopupMenuPosition.over,
-      offset: const Offset(0, -176),
-      constraints: const BoxConstraints(minWidth: 250, maxWidth: 280),
-      color: AppColors.surfaceWhite,
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadii.dialog),
-        side: const BorderSide(color: AppColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.sm,
-        ),
-        child: expanded
-            ? Container(
-                width: 228,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(AppRadii.control),
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppColors.primary,
-                      child: Icon(
-                        Icons.person_outline,
-                        size: 20,
-                        color: AppColors.surfaceWhite,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            userName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          Text(
-                            'Perfil',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.keyboard_arrow_up,
-                      color: AppColors.textSecondary,
-                    ),
-                  ],
-                ),
-              )
-            : const SizedBox(
-                width: 64,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.account_circle_outlined),
-                    SizedBox(height: AppSpacing.xs),
-                    Text('Perfil'),
-                  ],
-                ),
-              ),
-      ),
-      onSelected: (action) {
-        switch (action) {
-          case _AccountAction.changePassword:
-            context.go(RouteNames.changePasswordPath);
-          case _AccountAction.logout:
-            ref.read(sessionProvider.notifier).clearSession();
-        }
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem<_AccountAction>(
-          enabled: false,
-          height: 76,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                userName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              if (email.isNotEmpty)
-                Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: AppColors.textSecondary),
-                ),
-              Text(
-                role,
-                style: Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(color: AppColors.primary),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(height: 1),
-        const PopupMenuItem(
-          value: _AccountAction.changePassword,
-          child: Row(
-            children: [
-              Icon(Icons.lock_outline, size: 20),
-              SizedBox(width: AppSpacing.md),
-              Expanded(child: Text('Cambiar contraseña')),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: _AccountAction.logout,
-          child: Row(
-            children: [
-              Icon(Icons.logout, size: 20),
-              SizedBox(width: AppSpacing.md),
-              Expanded(child: Text('Cerrar sesión')),
-            ],
-          ),
-        ),
-      ],
+    return AccountMenu(
+      userName: userName,
+      email: email,
+      role: role,
+      expanded: expanded,
+      alignRight: alignRight,
+      onChangePassword: () => context.go(RouteNames.changePasswordPath),
+      onLogout: () => ref.read(sessionProvider.notifier).clearSession(),
     );
   }
 
@@ -327,5 +201,3 @@ class _NavigationDestination {
   final String path;
   final IconData icon;
 }
-
-enum _AccountAction { changePassword, logout }
