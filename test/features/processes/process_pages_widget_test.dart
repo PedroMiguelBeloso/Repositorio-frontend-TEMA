@@ -18,24 +18,34 @@ import 'fake_process_repository.dart';
 import 'process_test_fixtures.dart';
 
 void main() {
-  testWidgets('administrator can create an activity from the macro detail',
-      (tester) async {
+  testWidgets('administrator can create an activity from the macro detail', (
+    tester,
+  ) async {
     final version = sampleProcessVersion();
     final repository = FakeProcessRepository(
       definitions: [_definition],
-      versionsByProcess: {_definition.id: [version]},
+      versionsByProcess: {
+        _definition.id: [version],
+      },
     );
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        processRepositoryProvider.overrideWithValue(repository),
-        sessionProvider.overrideWith(() => _TestSessionNotifier(
-            const Session(role: UserRole.administrator))),
-      ],
-      child: MaterialApp(home: ProcessEditorPage(
-        processId: _definition.id,
-        versionId: version.id,
-      )),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          processRepositoryProvider.overrideWithValue(repository),
+          sessionProvider.overrideWith(
+            () => _TestSessionNotifier(
+              const Session(role: UserRole.administrator),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: ProcessEditorPage(
+            processId: _definition.id,
+            versionId: version.id,
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Estructura'));
     await tester.pumpAndSettle();
@@ -48,43 +58,56 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('administrator adds an input from the registry in the main editor',
-      (tester) async {
-    final version = sampleProcessVersion();
-    final repository = FakeProcessRepository(
-      definitions: [_definition],
-      versionsByProcess: {_definition.id: [version]},
-    );
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        processRepositoryProvider.overrideWithValue(repository),
-        registryRepositoryProvider.overrideWithValue(_FakeRegistryRepository()),
-        sessionProvider.overrideWith(() => _TestSessionNotifier(
-            const Session(role: UserRole.administrator))),
-      ],
-      child: MaterialApp(home: ProcessEditorPage(
-        processId: _definition.id,
-        versionId: version.id,
-      )),
-    ));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Estructura'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Agregar entrada'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Agregar entrada'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Elegir del índice de registros'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Highlights').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Guardar').last);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'administrator adds an input from the registry in the main editor',
+    (tester) async {
+      final version = sampleProcessVersion();
+      final repository = FakeProcessRepository(
+        definitions: [_definition],
+        versionsByProcess: {
+          _definition.id: [version],
+        },
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            processRepositoryProvider.overrideWithValue(repository),
+            registryRepositoryProvider.overrideWithValue(
+              _FakeRegistryRepository(),
+            ),
+            sessionProvider.overrideWith(
+              () => _TestSessionNotifier(
+                const Session(role: UserRole.administrator),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            home: ProcessEditorPage(
+              processId: _definition.id,
+              versionId: version.id,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Estructura'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Agregar entrada'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Agregar entrada'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Elegir del índice de registros'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Highlights').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guardar').last);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Highlights'), findsWidgets);
-    expect(find.text('Entradas'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('Highlights'), findsWidgets);
+      expect(find.text('Entradas'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'new-process selector shows the four visible names and sends the selected internal code',
@@ -120,13 +143,17 @@ void main() {
       await tester.tap(find.text('Crear proceso'));
       await tester.pumpAndSettle();
 
-      expect(repository.createdCode, M1ProcessCode.qualityContinuousImprovement);
+      expect(
+        repository.createdCode,
+        M1ProcessCode.qualityContinuousImprovement,
+      );
       expect(find.text('Iniciar primer borrador'), findsOneWidget);
     },
   );
 
-  testWidgets('reader can consult a draft but has no editing actions',
-      (tester) async {
+  testWidgets('reader can consult a draft but has no editing actions', (
+    tester,
+  ) async {
     final version = sampleProcessVersion();
     final repository = FakeProcessRepository(
       definitions: [_definition],
@@ -156,15 +183,25 @@ void main() {
     expect(find.text('Start Up'), findsWidgets);
     expect(find.text('Modo consulta'), findsOneWidget);
     expect(find.text('Objetivo vigente'), findsOneWidget);
+    expect(find.text('01 / ESTRUCTURA'), findsOneWidget);
+    expect(find.text('MACROACTIVIDAD 1'), findsOneWidget);
+    expect(find.text('Asignar responsable'), findsOneWidget);
+    expect(find.text('Entradas'), findsOneWidget);
+    expect(find.text('Salidas'), findsOneWidget);
+    expect(find.text('Registros de la actividad'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNothing);
     expect(find.text('Guardar'), findsNothing);
     expect(find.textContaining('Agregar'), findsNothing);
     expect(find.byTooltip('Eliminar política'), findsNothing);
     expect(find.byTooltip('Subir política'), findsNothing);
   });
 
-  testWidgets('a published version is read-only even for an administrator',
-      (tester) async {
-    final version = sampleProcessVersion(status: ProcessVersionStatus.published);
+  testWidgets('a published version is read-only even for an administrator', (
+    tester,
+  ) async {
+    final version = sampleProcessVersion(
+      status: ProcessVersionStatus.published,
+    );
     final repository = FakeProcessRepository(
       definitions: [_definition],
       versionsByProcess: {
@@ -198,8 +235,9 @@ void main() {
     expect(find.textContaining('Agregar'), findsNothing);
   });
 
-  testWidgets('leaving the route with local changes shows a warning',
-      (tester) async {
+  testWidgets('leaving the route with local changes shows a warning', (
+    tester,
+  ) async {
     final version = sampleProcessVersion();
     final repository = FakeProcessRepository(
       definitions: [_definition],
@@ -211,9 +249,8 @@ void main() {
       overrides: [
         processRepositoryProvider.overrideWithValue(repository),
         sessionProvider.overrideWith(
-          () => _TestSessionNotifier(
-            const Session(role: UserRole.administrator),
-          ),
+          () =>
+              _TestSessionNotifier(const Session(role: UserRole.administrator)),
         ),
       ],
     );
@@ -280,11 +317,16 @@ class _FakeRegistryRepository implements RegistryRepository {
   );
 
   @override
-  Future<RegistryPage> search({String query = '', int page = 0, int size = 20})
-      async => RegistryPage(items: [highlight], page: 0, totalPages: 1);
+  Future<RegistryPage> search({
+    String query = '',
+    int page = 0,
+    int size = 20,
+  }) async => RegistryPage(items: [highlight], page: 0, totalPages: 1);
 
   @override
-  Future<RegistryDefinition> create({required String canonicalName,
-      required EvidenceType evidenceType, String? officialNomenclature}) async =>
-      highlight;
+  Future<RegistryDefinition> create({
+    required String canonicalName,
+    required EvidenceType evidenceType,
+    String? officialNomenclature,
+  }) async => highlight;
 }
