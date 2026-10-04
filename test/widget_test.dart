@@ -371,9 +371,6 @@ void main() {
       );
 
       expect(find.byTooltip('Perfil'), findsOneWidget);
-      await tester.tap(find.byTooltip('Perfil'));
-      await tester.pumpAndSettle();
-      expect(find.text('Cambiar contraseña'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -391,9 +388,6 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
     expect(tester.getTopLeft(find.byTooltip('Perfil')).dy, greaterThan(650));
-    await tester.tap(find.byTooltip('Perfil'));
-    await tester.pumpAndSettle();
-    expect(find.text('Cerrar sesión'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

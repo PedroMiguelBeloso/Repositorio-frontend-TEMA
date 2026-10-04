@@ -4,7 +4,6 @@ abstract final class AppColors {
   // Valores existentes en el repositorio.
   static const primary = Color(0xFF176B67);
   static const surface = Color(0xFFFAFCFB);
-  static const canvas = Color(0xFFF3F7F6);
   static const outline = Color(0xFF778784);
 
   // Convención semántica centralizada.
@@ -12,7 +11,7 @@ abstract final class AppColors {
   static const surfaceVariant = Color(0xFFEAF1F0);
   static const textPrimary = Color(0xFF1A2523);
   static const textSecondary = Color(0xFF5C6967);
-  static const border = Color(0xFFD6E0DD);
+  static const border = Color(0xFFD2DDDA);
   static const success = Color(0xFF2E6F52);
   static const warning = Color(0xFF8A641A);
   static const danger = Color(0xFFA83A3A);
@@ -51,36 +50,9 @@ final ColorScheme appColorScheme =
       outline: AppColors.outline,
     );
 
-final TextTheme _baseTextTheme = Typography.material2021().black.apply(
+final TextTheme appTextTheme = Typography.material2021().black.apply(
   bodyColor: AppColors.textPrimary,
   displayColor: AppColors.textPrimary,
-);
-
-final TextTheme appTextTheme = _baseTextTheme.copyWith(
-  headlineMedium: _baseTextTheme.headlineMedium?.copyWith(
-    fontSize: 28,
-    fontWeight: FontWeight.w700,
-    height: 1.2,
-  ),
-  headlineSmall: _baseTextTheme.headlineSmall?.copyWith(
-    fontSize: 23,
-    fontWeight: FontWeight.w700,
-    height: 1.25,
-  ),
-  titleLarge: _baseTextTheme.titleLarge?.copyWith(
-    fontSize: 20,
-    fontWeight: FontWeight.w700,
-    height: 1.3,
-  ),
-  titleMedium: _baseTextTheme.titleMedium?.copyWith(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    height: 1.35,
-  ),
-  titleSmall: _baseTextTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-  bodyLarge: _baseTextTheme.bodyLarge?.copyWith(height: 1.5),
-  bodyMedium: _baseTextTheme.bodyMedium?.copyWith(height: 1.5),
-  labelLarge: _baseTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
 );
 
 ButtonStyle _standardButtonStyle({required Color background}) {

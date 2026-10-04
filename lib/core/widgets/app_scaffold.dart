@@ -105,11 +105,7 @@ class AppScaffold extends ConsumerWidget {
                 ],
                 trailing: Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-                  child: _accountMenu(
-                    context,
-                    ref,
-                    expanded: constraints.maxWidth >= 1100,
-                  ),
+                  child: _accountMenu(context, ref),
                 ),
               ),
               const VerticalDivider(width: 1),
@@ -121,92 +117,15 @@ class AppScaffold extends ConsumerWidget {
     );
   }
 
-  Widget _accountMenu(
-    BuildContext context,
-    WidgetRef ref, {
-    bool expanded = false,
-  }) {
-    final session = ref.watch(sessionProvider);
-    final userName = session?.user?.displayName.trim().isNotEmpty == true
-        ? session!.user!.displayName.trim()
-        : 'Mi cuenta';
-    final email = session?.user?.email ?? '';
-    final role = session?.isAdmin == true ? 'Administrador' : 'Lector';
+  Widget _accountMenu(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<_AccountAction>(
       tooltip: 'Perfil',
-      position: PopupMenuPosition.over,
-      offset: const Offset(0, -176),
-      constraints: const BoxConstraints(minWidth: 250, maxWidth: 280),
-      color: AppColors.surfaceWhite,
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadii.dialog),
-        side: const BorderSide(color: AppColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.sm,
+      child: const SizedBox(
+        width: 64,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [Icon(Icons.account_circle_outlined), Text('Perfil')],
         ),
-        child: expanded
-            ? Container(
-                width: 228,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(AppRadii.control),
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppColors.primary,
-                      child: Icon(
-                        Icons.person_outline,
-                        size: 20,
-                        color: AppColors.surfaceWhite,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            userName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          Text(
-                            'Perfil',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.keyboard_arrow_up,
-                      color: AppColors.textSecondary,
-                    ),
-                  ],
-                ),
-              )
-            : const SizedBox(
-                width: 64,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.account_circle_outlined),
-                    SizedBox(height: AppSpacing.xs),
-                    Text('Perfil'),
-                  ],
-                ),
-              ),
       ),
       onSelected: (action) {
         switch (action) {
@@ -216,58 +135,14 @@ class AppScaffold extends ConsumerWidget {
             ref.read(sessionProvider.notifier).clearSession();
         }
       },
-      itemBuilder: (context) => [
-        PopupMenuItem<_AccountAction>(
-          enabled: false,
-          height: 76,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                userName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              if (email.isNotEmpty)
-                Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              Text(
-                role,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.copyWith(color: AppColors.primary),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(height: 1),
-        const PopupMenuItem(
+      itemBuilder: (context) => const [
+        PopupMenuItem(
           value: _AccountAction.changePassword,
-          child: Row(
-            children: [
-              Icon(Icons.lock_outline, size: 20),
-              SizedBox(width: AppSpacing.md),
-              Expanded(child: Text('Cambiar contraseña')),
-            ],
-          ),
+          child: Text('Cambiar contraseña'),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _AccountAction.logout,
-          child: Row(
-            children: [
-              Icon(Icons.logout, size: 20),
-              SizedBox(width: AppSpacing.md),
-              Expanded(child: Text('Cerrar sesión')),
-            ],
-          ),
+          child: Text('Cerrar sesión'),
         ),
       ],
     );
