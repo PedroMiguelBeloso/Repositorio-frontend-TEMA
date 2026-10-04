@@ -22,6 +22,13 @@ class ProcessConsultationView extends StatefulWidget {
 
 class _ProcessConsultationViewState extends State<ProcessConsultationView> {
   final Map<String, GlobalKey> _macroKeys = {};
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,69 +39,78 @@ class _ProcessConsultationViewState extends State<ProcessConsultationView> {
 
     return ColoredBox(
       color: AppColors.canvas,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 64),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 980),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _ProcessHeader(
-                  definition: widget.definition,
-                  version: widget.version,
-                ),
-                const SizedBox(height: 32),
-                _Policies(policies: policies),
-                const SizedBox(height: 40),
-                _Heading(
-                  title: 'Recorrido del proceso',
-                  subtitle:
-                      'Las entradas alimentan las actividades. Cada actividad puede generar registros; al final aparecen las salidas de la macroactividad.',
-                ),
-                const SizedBox(height: 16),
-                if (macros.isNotEmpty)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (var index = 0; index < macros.length; index++)
-                        OutlinedButton(
-                          onPressed: () {
-                            final target = _macroKeys[macros[index].localKey]
-                                ?.currentContext;
-                            if (target == null) return;
-                            Scrollable.ensureVisible(
-                              target,
-                              duration: const Duration(milliseconds: 250),
-                              alignment: 0.03,
-                            );
-                          },
-                          child: Text(
-                            '${index + 1}. ${_text(macros[index].name)}',
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        trackVisibility: true,
+        interactive: true,
+        thickness: 8,
+        radius: const Radius.circular(4),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 64),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ProcessHeader(
+                    definition: widget.definition,
+                    version: widget.version,
+                  ),
+                  const SizedBox(height: 32),
+                  _Policies(policies: policies),
+                  const SizedBox(height: 40),
+                  _Heading(
+                    title: 'Recorrido del proceso',
+                    subtitle:
+                        'Las entradas alimentan las actividades. Cada actividad puede generar registros; al final aparecen las salidas de la macroactividad.',
+                  ),
+                  const SizedBox(height: 16),
+                  if (macros.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (var index = 0; index < macros.length; index++)
+                          OutlinedButton(
+                            onPressed: () {
+                              final target = _macroKeys[macros[index].localKey]
+                                  ?.currentContext;
+                              if (target == null) return;
+                              Scrollable.ensureVisible(
+                                target,
+                                duration: const Duration(milliseconds: 250),
+                                alignment: 0.03,
+                              );
+                            },
+                            child: Text(
+                              '${index + 1}. ${_text(macros[index].name)}',
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                const SizedBox(height: 24),
-                if (macros.isEmpty)
-                  const _Missing(
-                    'Todavía no se configuraron macroactividades en esta versión.',
-                  ),
-                for (var index = 0; index < macros.length; index++) ...[
-                  KeyedSubtree(
-                    key: _macroKeys.putIfAbsent(
-                      macros[index].localKey,
-                      GlobalKey.new,
+                      ],
                     ),
-                    child: _MacroActivity(
-                      macro: macros[index],
-                      number: index + 1,
+                  const SizedBox(height: 24),
+                  if (macros.isEmpty)
+                    const _Missing(
+                      'Todavía no se configuraron macroactividades en esta versión.',
                     ),
-                  ),
-                  const SizedBox(height: 28),
+                  for (var index = 0; index < macros.length; index++) ...[
+                    KeyedSubtree(
+                      key: _macroKeys.putIfAbsent(
+                        macros[index].localKey,
+                        GlobalKey.new,
+                      ),
+                      child: _MacroActivity(
+                        macro: macros[index],
+                        number: index + 1,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -204,7 +220,7 @@ class _Meta extends StatelessWidget {
     TextSpan(
       children: [
         TextSpan(
-          text: '$label  ',
+          text: '$label: ',
           style: TextStyle(color: AppColors.textSecondary),
         ),
         TextSpan(
@@ -369,8 +385,11 @@ class _MacroActivity extends StatelessWidget {
                 if (activities.isEmpty)
                   const _Missing('No se configuraron actividades.')
                 else
-                  for (var index = 0; index < activities.length; index++)
+                  for (var index = 0; index < activities.length; index++) ...[
+                    if (index > 0)
+                      Divider(key: Key('activity-divider-$index'), height: 1),
                     _Activity(activity: activities[index], number: index + 1),
+                  ],
                 const SizedBox(height: 26),
                 _EvidenceSection(
                   title: 'Salidas',
@@ -400,81 +419,105 @@ class _Activity extends StatelessWidget {
         .where((line) => line.isNotEmpty)
         .toList();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Container(
-        padding: const EdgeInsets.only(left: 16),
-        decoration: const BoxDecoration(
-          border: Border(left: BorderSide(color: AppColors.info, width: 3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Actividad $number',
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(color: AppColors.info),
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(AppRadii.control),
             ),
-            const SizedBox(height: 3),
-            Semantics(
-              header: true,
-              child: Text(
-                _text(activity.name),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 18,
-              runSpacing: 4,
+            child: Row(
               children: [
-                if (activity.responsible.trim().isNotEmpty)
-                  _Meta('Responsable', activity.responsible),
-                if (activity.etaText.trim().isNotEmpty)
-                  _Meta('Plazo', activity.etaText),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (steps.isEmpty)
-              const _Missing('No se cargaron instrucciones.')
-            else
-              for (var index = 0; index < steps.length; index++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '$number',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppColors.surfaceWhite,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: 28,
-                        child: Text(
-                          '${index + 1}.',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      Text(
+                        'Actividad $number',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: AppColors.primary),
                       ),
-                      Expanded(
+                      Semantics(
+                        header: true,
                         child: Text(
-                          steps[index].replaceFirst(
-                            RegExp(r'^\d+[.\-)]\s*'),
-                            '',
-                          ),
+                          _text(activity.name),
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
                     ],
                   ),
                 ),
-            const SizedBox(height: 12),
-            _EvidenceSection(
-              title: 'Registros de esta actividad',
-              emptyMessage: 'No se configuraron registros para esta actividad.',
-              items: activity.records,
-              icon: Icons.description_outlined,
-              compact: true,
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 18,
+            runSpacing: 4,
+            children: [
+              if (activity.responsible.trim().isNotEmpty)
+                _Meta('Responsable', activity.responsible),
+              if (activity.etaText.trim().isNotEmpty)
+                _Meta('Plazo', activity.etaText),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (steps.isEmpty)
+            const _Missing('No se cargaron instrucciones.')
+          else
+            for (var index = 0; index < steps.length; index++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        '${index + 1}.',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        steps[index].replaceFirst(RegExp(r'^\d+[.\-)]\s*'), ''),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          const SizedBox(height: 12),
+          _EvidenceSection(
+            title: 'Registros de esta actividad',
+            emptyMessage: 'No se configuraron registros para esta actividad.',
+            items: activity.records,
+            icon: Icons.description_outlined,
+            compact: true,
+          ),
+        ],
       ),
     );
   }
@@ -557,14 +600,23 @@ class _EvidenceRow extends StatelessWidget {
           spacing: 12,
           runSpacing: 3,
           children: [
-            _EvidenceFact(item.evidenceType.label, AppColors.info),
             _EvidenceFact(
+              'Tipo de evidencia',
+              item.evidenceType.label,
+              AppColors.info,
+            ),
+            _EvidenceFact(
+              'Cuándo aplica',
               item.applicability.label,
               item.applicability == ApplicabilityMode.caseDependent
                   ? AppColors.warning
                   : AppColors.textSecondary,
             ),
-            _EvidenceFact(item.cardinality.label, AppColors.textSecondary),
+            _EvidenceFact(
+              'Cantidad requerida',
+              item.cardinality.label,
+              AppColors.textSecondary,
+            ),
           ],
         ),
         if (item.officialNomenclature?.trim().isNotEmpty == true) ...[
@@ -582,14 +634,26 @@ class _EvidenceRow extends StatelessWidget {
 }
 
 class _EvidenceFact extends StatelessWidget {
-  const _EvidenceFact(this.label, this.color);
+  const _EvidenceFact(this.label, this.value, this.color);
   final String label;
+  final String value;
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Text(
-    label,
-    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
+  Widget build(BuildContext context) => Text.rich(
+    TextSpan(
+      children: [
+        TextSpan(
+          text: '$label: ',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        TextSpan(
+          text: value,
+          style: TextStyle(color: color, fontWeight: FontWeight.w600),
+        ),
+      ],
+    ),
+    style: Theme.of(context).textTheme.labelMedium,
   );
 }
 

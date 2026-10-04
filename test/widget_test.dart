@@ -371,6 +371,12 @@ void main() {
       );
 
       expect(find.byTooltip('Perfil'), findsOneWidget);
+      await tester.tap(find.byTooltip('Perfil'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getBottomRight(find.byKey(const Key('account-menu-panel'))).dx,
+        lessThanOrEqualTo(360),
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -388,6 +394,31 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
     expect(tester.getTopLeft(find.byTooltip('Perfil')).dy, greaterThan(650));
+    await tester.tap(find.byTooltip('Perfil'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getBottomLeft(find.byKey(const Key('account-menu-panel'))).dy,
+      lessThan(tester.getTopLeft(find.byTooltip('Perfil')).dy),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact rail keeps account menu inside the viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpApp(tester, session: const Session(role: UserRole.reader));
+    await tester.tap(find.byTooltip('Perfil'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.byKey(const Key('account-menu-panel'))).dx,
+      greaterThanOrEqualTo(0),
+    );
     expect(tester.takeException(), isNull);
   });
 }
