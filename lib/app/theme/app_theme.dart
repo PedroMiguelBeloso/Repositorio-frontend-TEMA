@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  // Valores existentes en el repositorio.
-  static const primary = Color(0xFF176B67);
-  static const surface = Color(0xFFFAFCFB);
-  static const outline = Color(0xFF778784);
-
-  // Convención semántica centralizada.
-  static const surfaceWhite = Color(0xFFFFFFFF);
-  static const surfaceVariant = Color(0xFFEAF1F0);
-  static const textPrimary = Color(0xFF1A2523);
-  static const textSecondary = Color(0xFF5C6967);
-  static const border = Color(0xFFD2DDDA);
+  // Paleta TEMA: el color comunica una función, no una categoría arbitraria.
+  static const primary = Color(0xFF27306C);
+  static const primaryHover = Color(0xFF1D2556);
+  static const info = Color(0xFF12649A);
+  static const warning = Color(0xFFA84C00);
   static const success = Color(0xFF2E6F52);
-  static const warning = Color(0xFF8A641A);
   static const danger = Color(0xFFA83A3A);
-  static const info = Color(0xFF356F8A);
+  static const surface = Color(0xFFF5F7FA);
+  static const canvas = surface;
+  static const surfaceWhite = Color(0xFFFFFFFF);
+  static const surfaceVariant = Color(0xFFEAF1F8);
+  static const textPrimary = Color(0xFF202735);
+  static const textSecondary = Color(0xFF566174);
+  static const border = Color(0xFFD8DEE8);
+  static const outline = Color(0xFF68768D);
 }
 
 abstract final class AppSpacing {
@@ -50,9 +50,33 @@ final ColorScheme appColorScheme =
       outline: AppColors.outline,
     );
 
-final TextTheme appTextTheme = Typography.material2021().black.apply(
+final TextTheme _baseTextTheme = Typography.material2021().black.apply(
   bodyColor: AppColors.textPrimary,
   displayColor: AppColors.textPrimary,
+);
+
+final TextTheme appTextTheme = _baseTextTheme.copyWith(
+  headlineLarge: _baseTextTheme.headlineLarge?.copyWith(
+    fontSize: 32,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+  ),
+  headlineSmall: _baseTextTheme.headlineSmall?.copyWith(
+    fontSize: 23,
+    fontWeight: FontWeight.w700,
+    height: 1.25,
+  ),
+  titleLarge: _baseTextTheme.titleLarge?.copyWith(
+    fontSize: 19,
+    fontWeight: FontWeight.w700,
+  ),
+  titleMedium: _baseTextTheme.titleMedium?.copyWith(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  ),
+  titleSmall: _baseTextTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+  bodyLarge: _baseTextTheme.bodyLarge?.copyWith(height: 1.5),
+  bodyMedium: _baseTextTheme.bodyMedium?.copyWith(height: 1.5),
 );
 
 ButtonStyle _standardButtonStyle({required Color background}) {

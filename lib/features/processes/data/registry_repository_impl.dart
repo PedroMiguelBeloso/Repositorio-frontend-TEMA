@@ -41,6 +41,8 @@ class RegistryRepositoryImpl implements RegistryRepository {
           .map((item) => RegistryDefinition.fromJson(_asMap(item)))
           .toList(),
       page: pageInfo['page'] as int,
+      size: pageInfo['size'] as int,
+      totalElements: pageInfo['totalElements'] as int,
       totalPages: pageInfo['totalPages'] as int,
     );
   });
