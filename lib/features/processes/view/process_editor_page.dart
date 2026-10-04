@@ -13,6 +13,7 @@ import '../widgets/general_data_section.dart';
 import '../widgets/policies_section.dart';
 import '../widgets/process_structure_detail.dart';
 import '../widgets/process_tree_view.dart';
+import 'process_consultation_view.dart';
 
 class ProcessEditorPage extends ConsumerStatefulWidget {
   const ProcessEditorPage({
@@ -70,6 +71,17 @@ class _ProcessEditorPageState extends ConsumerState<ProcessEditorPage> {
     final notifier = ref.read(
       processEditorViewModelProvider(_providerKey).notifier,
     );
+
+    if (!canEdit) {
+      return Scaffold(
+        backgroundColor: AppColors.canvas,
+        appBar: AppBar(title: const Text('Consulta del proceso')),
+        body: ProcessConsultationView(
+          definition: state.definition,
+          version: state.version,
+        ),
+      );
+    }
 
     return DefaultTabController(
       length: 3,
