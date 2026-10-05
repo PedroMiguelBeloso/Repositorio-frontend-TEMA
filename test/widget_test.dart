@@ -345,7 +345,9 @@ void main() {
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
       RouteNames.usersPath,
     );
-    expect(find.text('Gestión de Usuarios'), findsOneWidget);
+    expect(find.text('Gestión de usuarios'), findsOneWidget);
+    expect(find.text('Rol: Lector'), findsOneWidget);
+    expect(find.textContaining('READER'), findsNothing);
 
     await tester.tap(find.text('Crear Lector'));
     await tester.pumpAndSettle();
@@ -357,6 +359,37 @@ void main() {
   testWidgets('reader does not see user management', (tester) async {
     await _pumpApp(tester, session: const Session(role: UserRole.reader));
     expect(find.text('Usuarios'), findsNothing);
+  });
+
+  testWidgets('wide user list has columns and reader form stays narrow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.administrator),
+    );
+    final router = container.read(appRouterProvider);
+    router.go(RouteNames.usersPath);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Usuario'), findsOneWidget);
+    expect(find.text('Correo'), findsOneWidget);
+    expect(find.text('Rol'), findsOneWidget);
+    expect(find.text('Estado'), findsOneWidget);
+    expect(find.text('Lector'), findsOneWidget);
+
+    router.go(RouteNames.createReaderPath);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(TextFormField).first).width,
+      lessThanOrEqualTo(640),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('reader cannot see or access integrations', (tester) async {
@@ -498,8 +531,17 @@ class _TestIntegrationsRepository implements IntegrationsRepository {
 
 class _TestUserRepository implements UserRepository {
   @override
-  Future<PaginatedUsers> listUsers(int page, int size) async =>
-      PaginatedUsers(items: []);
+  Future<PaginatedUsers> listUsers(int page, int size) async => PaginatedUsers(
+    items: [
+      User(
+        id: 'reader-1',
+        email: 'lector@tema.local',
+        displayName: 'Lector de prueba',
+        role: Role.reader,
+        active: true,
+      ),
+    ],
+  );
 
   @override
   Future<User> createReader(CreateReaderRequest request) async => User(
