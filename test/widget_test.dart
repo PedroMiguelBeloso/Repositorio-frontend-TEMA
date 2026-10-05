@@ -9,10 +9,13 @@ import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
 import 'package:proyecto_tema_frontend/features/integrations/data/integrations_repository.dart';
 import 'package:proyecto_tema_frontend/features/integrations/data/integrations_repository_provider.dart';
 import 'package:proyecto_tema_frontend/features/integrations/model/integration_status.dart';
+import 'package:proyecto_tema_frontend/features/auth/model/auth_models.dart';
 import 'package:proyecto_tema_frontend/features/processes/viewmodel/process_list_view_model.dart';
 import 'package:proyecto_tema_frontend/features/services/model/service_models.dart'
     hide ProcessStatus;
 import 'package:proyecto_tema_frontend/features/services/viewmodel/service_list_view_model.dart';
+import 'package:proyecto_tema_frontend/features/users/data/dto/user_dtos.dart';
+import 'package:proyecto_tema_frontend/features/users/data/user_repository.dart';
 import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository.dart';
 import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository_provider.dart';
 import 'package:proyecto_tema_frontend/features/processes/model/evidence_expectation.dart';
@@ -328,6 +331,34 @@ void main() {
     expect(find.text('Integraciones'), findsNWidgets(2));
   });
 
+  testWidgets('administrator can reach reader creation from navigation', (
+    tester,
+  ) async {
+    final container = await _pumpApp(
+      tester,
+      session: const Session(role: UserRole.administrator),
+    );
+
+    await tester.tap(find.text('Usuarios'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      RouteNames.usersPath,
+    );
+    expect(find.text('Gestión de Usuarios'), findsOneWidget);
+
+    await tester.tap(find.text('Crear Lector'));
+    await tester.pumpAndSettle();
+    expect(find.text('Crear Usuario Lector'), findsOneWidget);
+    expect(find.text('Nombre visible'), findsOneWidget);
+    expect(find.text('Contraseña inicial'), findsOneWidget);
+  });
+
+  testWidgets('reader does not see user management', (tester) async {
+    await _pumpApp(tester, session: const Session(role: UserRole.reader));
+    expect(find.text('Usuarios'), findsNothing);
+  });
+
   testWidgets('reader cannot see or access integrations', (tester) async {
     final container = await _pumpApp(
       tester,
@@ -443,6 +474,7 @@ Future<ProviderContainer> _pumpApp(
         integrationsRepositoryProvider.overrideWithValue(
           _TestIntegrationsRepository(),
         ),
+        userRepositoryProvider.overrideWithValue(_TestUserRepository()),
       ],
       child: const App(),
     ),
@@ -462,6 +494,21 @@ class _TestIntegrationsRepository implements IntegrationsRepository {
 
   @override
   Future<List<IntegrationStatus>> testIntegrations() async => const [];
+}
+
+class _TestUserRepository implements UserRepository {
+  @override
+  Future<PaginatedUsers> listUsers(int page, int size) async =>
+      PaginatedUsers(items: []);
+
+  @override
+  Future<User> createReader(CreateReaderRequest request) async => User(
+    id: 'reader-1',
+    email: request.email,
+    displayName: request.displayName,
+    role: Role.reader,
+    active: true,
+  );
 }
 
 class _TestServiceListViewModel extends ServiceListViewModel {

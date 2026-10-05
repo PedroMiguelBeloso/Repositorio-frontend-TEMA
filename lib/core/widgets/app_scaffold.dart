@@ -67,6 +67,11 @@ class AppScaffold extends ConsumerWidget {
                           value: RouteNames.integrationsPath,
                           child: Text('Integraciones'),
                         ),
+                      if (isAdministrator)
+                        const PopupMenuItem(
+                          value: RouteNames.usersPath,
+                          child: Text('Usuarios'),
+                        ),
                     ],
                     child: const SizedBox(
                       width: 54,
@@ -177,6 +182,12 @@ class AppScaffold extends ConsumerWidget {
         path: RouteNames.integrationsPath,
         icon: Icons.extension_outlined,
       ),
+    if (isAdministrator)
+      const _NavigationDestination(
+        label: 'Usuarios',
+        path: RouteNames.usersPath,
+        icon: Icons.people_outline,
+      ),
   ];
 
   int _selectedIndex(BuildContext context, bool isAdministrator) {
@@ -186,6 +197,7 @@ class AppScaffold extends ConsumerWidget {
     if (location.startsWith(RouteNames.servicesPath)) return 3;
     if (location.startsWith(RouteNames.verificationsPath)) return 4;
     if (isAdministrator && location == RouteNames.integrationsPath) return 5;
+    if (isAdministrator && location.startsWith(RouteNames.usersPath)) return 6;
     return 0;
   }
 }
