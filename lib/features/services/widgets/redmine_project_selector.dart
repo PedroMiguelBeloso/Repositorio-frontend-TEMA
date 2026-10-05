@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_theme.dart';
@@ -20,9 +22,8 @@ class RedmineProjectSelector extends StatelessWidget {
   final String? selectedId;
   final String? selectedName;
   final AppFailure? initialFailure;
-  final Future<PagedResult<RedmineProjectOption>> Function({
-    required int page,
-  }) loadPage;
+  final Future<PagedResult<RedmineProjectOption>> Function({required int page})
+  loadPage;
   final ValueChanged<RedmineProjectOption> onSelected;
   final VoidCallback onClear;
 
@@ -45,7 +46,9 @@ class RedmineProjectSelector extends StatelessWidget {
                 children: [
                   const Icon(Icons.assignment_outlined),
                   const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text(selectedName ?? 'Proyecto seleccionado')),
+                  Expanded(
+                    child: Text(selectedName ?? 'Proyecto seleccionado'),
+                  ),
                   IconButton(
                     tooltip: 'Quitar proyecto',
                     onPressed: onClear,
@@ -92,9 +95,8 @@ class _RedmineProjectDialog extends StatefulWidget {
   });
 
   final String? selectedId;
-  final Future<PagedResult<RedmineProjectOption>> Function({
-    required int page,
-  }) loadPage;
+  final Future<PagedResult<RedmineProjectOption>> Function({required int page})
+  loadPage;
 
   @override
   State<_RedmineProjectDialog> createState() => _RedmineProjectDialogState();
@@ -147,14 +149,19 @@ class _RedmineProjectDialogState extends State<_RedmineProjectDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
+
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       title: const Text('Seleccionar proyecto de Redmine'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: SizedBox(
-          height: 380,
-          child: _content(context),
+      content: SizedBox(
+        width: math.min(600, math.max(1, viewport.width - 80)),
+        height: math.min(
+          380,
+          math.max(1, viewport.height - keyboardHeight - 180),
         ),
+        child: _content(context),
       ),
       actions: [
         TextButton(
@@ -167,16 +174,11 @@ class _RedmineProjectDialogState extends State<_RedmineProjectDialog> {
 
   Widget _content(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_failure case final failure?) {
-      return AppErrorView(
-        failure: failure,
-        onRetry: _load,
-      );
+      return AppErrorView(failure: failure, onRetry: _load);
     }
 
     final result = _result!;

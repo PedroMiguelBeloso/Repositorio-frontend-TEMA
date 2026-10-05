@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_theme.dart';
@@ -23,7 +25,8 @@ class DriveFolderSelector extends StatelessWidget {
   final Future<PagedResult<DriveFolderOption>> Function({
     required String query,
     required int page,
-  }) loadPage;
+  })
+  loadPage;
   final ValueChanged<DriveFolderOption> onSelected;
   final VoidCallback onClear;
 
@@ -46,9 +49,7 @@ class DriveFolderSelector extends StatelessWidget {
                 children: [
                   const Icon(Icons.folder_outlined),
                   const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(selectedName ?? 'Carpeta seleccionada'),
-                  ),
+                  Expanded(child: Text(selectedName ?? 'Carpeta seleccionada')),
                   IconButton(
                     tooltip: 'Quitar carpeta',
                     onPressed: onClear,
@@ -87,16 +88,14 @@ class DriveFolderSelector extends StatelessWidget {
 }
 
 class _DriveFolderDialog extends StatefulWidget {
-  const _DriveFolderDialog({
-    required this.selectedId,
-    required this.loadPage,
-  });
+  const _DriveFolderDialog({required this.selectedId, required this.loadPage});
 
   final String? selectedId;
   final Future<PagedResult<DriveFolderOption>> Function({
     required String query,
     required int page,
-  }) loadPage;
+  })
+  loadPage;
 
   @override
   State<_DriveFolderDialog> createState() => _DriveFolderDialogState();
@@ -159,29 +158,36 @@ class _DriveFolderDialogState extends State<_DriveFolderDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
+
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       title: const Text('Seleccionar carpeta de Google Drive'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: SizedBox(
-          height: 430,
-          child: Column(
-            children: [
-              TextField(
-                controller: _queryController,
-                decoration: InputDecoration(
-                  labelText: 'Buscar carpeta',
-                  suffixIcon: IconButton(
-                    onPressed: () => _load(page: 0),
-                    icon: const Icon(Icons.search),
-                  ),
+      content: SizedBox(
+        // AlertDialog measures its content intrinsically. A scrollable ListView
+        // cannot answer that measurement unless both dimensions are bounded.
+        width: math.min(600, math.max(1, viewport.width - 80)),
+        height: math.min(
+          430,
+          math.max(1, viewport.height - keyboardHeight - 180),
+        ),
+        child: Column(
+          children: [
+            TextField(
+              controller: _queryController,
+              decoration: InputDecoration(
+                labelText: 'Buscar carpeta',
+                suffixIcon: IconButton(
+                  onPressed: () => _load(page: 0),
+                  icon: const Icon(Icons.search),
                 ),
-                onSubmitted: (_) => _load(page: 0),
               ),
-              const SizedBox(height: AppSpacing.md),
-              Expanded(child: _content(context)),
-            ],
-          ),
+              onSubmitted: (_) => _load(page: 0),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Expanded(child: _content(context)),
+          ],
         ),
       ),
       actions: [
@@ -195,16 +201,11 @@ class _DriveFolderDialogState extends State<_DriveFolderDialog> {
 
   Widget _content(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_failure case final failure?) {
-      return AppErrorView(
-        failure: failure,
-        onRetry: _load,
-      );
+      return AppErrorView(failure: failure, onRetry: _load);
     }
 
     final result = _result!;
