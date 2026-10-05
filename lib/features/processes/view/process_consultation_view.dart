@@ -51,7 +51,7 @@ class _ProcessConsultationViewState extends State<ProcessConsultationView> {
           padding: const EdgeInsets.fromLTRB(20, 28, 20, 64),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 980),
+              constraints: const BoxConstraints(maxWidth: 1080),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -381,13 +381,19 @@ class _MacroActivity extends StatelessWidget {
                   'Actividades',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 14),
                 if (activities.isEmpty)
                   const _Missing('No se configuraron actividades.')
                 else
                   for (var index = 0; index < activities.length; index++) ...[
                     if (index > 0)
-                      Divider(key: Key('activity-divider-$index'), height: 1),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Divider(
+                          key: Key('activity-divider-$index'),
+                          height: 1,
+                        ),
+                      ),
                     _Activity(activity: activities[index], number: index + 1),
                   ],
                 const SizedBox(height: 26),
@@ -418,23 +424,26 @@ class _Activity extends StatelessWidget {
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
+    return Card.outlined(
+      key: Key('activity-card-$number'),
+      margin: EdgeInsets.zero,
+      color: AppColors.surfaceWhite,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        side: BorderSide(color: AppColors.outline.withValues(alpha: 0.55)),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(AppRadii.control),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+            color: AppColors.primary.withValues(alpha: 0.06),
             child: Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 38,
+                  height: 38,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: AppColors.primary,
@@ -470,52 +479,70 @@ class _Activity extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 18,
-            runSpacing: 4,
-            children: [
-              if (activity.responsible.trim().isNotEmpty)
-                _Meta('Responsable', activity.responsible),
-              if (activity.etaText.trim().isNotEmpty)
-                _Meta('Plazo', activity.etaText),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (steps.isEmpty)
-            const _Missing('No se cargaron instrucciones.')
-          else
-            for (var index = 0; index < steps.length; index++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 20,
+                  runSpacing: 8,
                   children: [
-                    SizedBox(
-                      width: 28,
-                      child: Text(
-                        '${index + 1}.',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        steps[index].replaceFirst(RegExp(r'^\d+[.\-)]\s*'), ''),
-                      ),
-                    ),
+                    if (activity.responsible.trim().isNotEmpty)
+                      _Meta('Responsable', activity.responsible),
+                    if (activity.etaText.trim().isNotEmpty)
+                      _Meta('Plazo', activity.etaText),
                   ],
                 ),
-              ),
-          const SizedBox(height: 12),
-          _EvidenceSection(
-            title: 'Registros de esta actividad',
-            emptyMessage: 'No se configuraron registros para esta actividad.',
-            items: activity.records,
-            icon: Icons.description_outlined,
-            compact: true,
+                const SizedBox(height: 20),
+                Text(
+                  'Instrucciones',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                if (steps.isEmpty)
+                  const _Missing('No se cargaron instrucciones.')
+                else
+                  for (var index = 0; index < steps.length; index++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            child: Text(
+                              '${index + 1}.',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              steps[index].replaceFirst(
+                                RegExp(r'^\d+[.\-)]\s*'),
+                                '',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                _EvidenceSection(
+                  title: 'Registros de esta actividad',
+                  emptyMessage:
+                      'No se configuraron registros para esta actividad.',
+                  items: activity.records,
+                  icon: Icons.description_outlined,
+                  compact: true,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -558,24 +585,31 @@ class _EvidenceSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (sorted.isEmpty)
-          _Missing(emptyMessage)
+          compact
+              ? Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.canvas,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: _Missing(emptyMessage)),
+                    ],
+                  ),
+                )
+              : _Missing(emptyMessage)
         else
-          Container(
-            decoration: BoxDecoration(
-              color: compact ? AppColors.canvas : AppColors.surfaceWhite,
-              border: Border.all(color: AppColors.border),
-              borderRadius: BorderRadius.circular(AppRadii.control),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var index = 0; index < sorted.length; index++) ...[
-                  if (index > 0) const Divider(height: 1),
-                  _EvidenceRow(item: sorted[index]),
-                ],
-              ],
-            ),
-          ),
+          for (var index = 0; index < sorted.length; index++) ...[
+            if (index > 0) const SizedBox(height: 8),
+            _EvidenceRow(item: sorted[index]),
+          ],
       ],
     );
   }
@@ -586,8 +620,13 @@ class _EvidenceRow extends StatelessWidget {
   final EvidenceExpectation item;
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+    decoration: BoxDecoration(
+      color: AppColors.canvas,
+      border: Border.all(color: AppColors.border),
+      borderRadius: BorderRadius.circular(6),
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -603,7 +642,7 @@ class _EvidenceRow extends StatelessWidget {
             _EvidenceFact(
               'Tipo de evidencia',
               item.evidenceType.label,
-              AppColors.info,
+              AppColors.textPrimary,
             ),
             _EvidenceFact(
               'Cuándo aplica',

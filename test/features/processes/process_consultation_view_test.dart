@@ -34,6 +34,8 @@ void main() {
               name: 'Asignar responsable del servicio',
               instructions:
                   '1- Analizar la propuesta.\n2- Actualizar Capacity.',
+              etaText:
+                  '2 días hábiles como máximo luego de recibir y revisar la propuesta aprobada por el cliente',
             ),
             const ProcessActivity(
               localKey: 'activity-2',
@@ -98,6 +100,26 @@ void main() {
         expect(find.text('Macroactividad 2'), findsOneWidget);
         expect(find.byType(Scrollbar), findsOneWidget);
         expect(find.byKey(const Key('activity-divider-1')), findsOneWidget);
+        expect(find.byKey(const Key('activity-card-1')), findsOneWidget);
+        expect(find.text('Instrucciones'), findsNWidgets(2));
+        expect(
+          find.text('No se configuraron registros para esta actividad.'),
+          findsOneWidget,
+        );
+        expect(
+          find.ancestor(
+            of: find.text('record-1'),
+            matching: find.byKey(const Key('activity-card-1')),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.ancestor(
+            of: find.text('input-1'),
+            matching: find.byKey(const Key('activity-card-1')),
+          ),
+          findsNothing,
+        );
         expect(
           find.textContaining('Responsable: Responsable vigente'),
           findsOneWidget,
