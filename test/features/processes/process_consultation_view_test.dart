@@ -33,7 +33,7 @@ void main() {
             base.macroActivities.first.activities.first.copyWith(
               name: 'Asignar responsable del servicio',
               instructions:
-                  '1- Analizar la propuesta.\n2- Actualizar Capacity.',
+                  '1. Analizar la propuesta.\nContinuar la misma instrucción.\n2. Actualizar Capacity.',
               etaText:
                   '2 días hábiles como máximo luego de recibir y revisar la propuesta aprobada por el cliente',
             ),
@@ -102,6 +102,10 @@ void main() {
         expect(find.byKey(const Key('activity-divider-1')), findsOneWidget);
         expect(find.byKey(const Key('activity-card-1')), findsOneWidget);
         expect(find.text('Instrucciones'), findsNWidgets(2));
+        expect(
+          find.text('1. Analizar la propuesta.\nContinuar la misma instrucción.\n2. Actualizar Capacity.'),
+          findsOneWidget,
+        );
         expect(
           find.text('No se configuraron registros para esta actividad.'),
           findsOneWidget,

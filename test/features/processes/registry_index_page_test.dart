@@ -59,6 +59,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('each selector opening starts with the complete catalog', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          registryRepositoryProvider.overrideWithValue(
+            _RegistryRepository([_record(0), _record(1)]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: appTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => selectRegistryDefinition(context),
+                child: const Text('Seleccionar'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Seleccionar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Registro 0'), findsOneWidget);
+    expect(find.text('Registro 1'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'Registro 1');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('Registro 0'), findsNothing);
+    await tester.tap(find.text('Registro 1').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Seleccionar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Registro 0'), findsOneWidget);
+    expect(find.text('Registro 1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('empty catalog explains that no definitions exist', (
     tester,
   ) async {

@@ -419,11 +419,7 @@ class _Activity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final steps = activity.instructions
-        .split(RegExp(r'\r?\n'))
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .toList();
+    final instructionText = activity.instructions.trim();
     return Card.outlined(
       key: Key('activity-card-$number'),
       margin: EdgeInsets.zero,
@@ -500,36 +496,10 @@ class _Activity extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
-                if (steps.isEmpty)
+                if (instructionText.isEmpty)
                   const _Missing('No se cargaron instrucciones.')
                 else
-                  for (var index = 0; index < steps.length; index++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 28,
-                            child: Text(
-                              '${index + 1}.',
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              steps[index].replaceFirst(
-                                RegExp(r'^\d+[.\-)]\s*'),
-                                '',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  Text(instructionText),
                 const SizedBox(height: 16),
                 const Divider(height: 1),
                 const SizedBox(height: 16),
