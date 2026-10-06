@@ -41,6 +41,7 @@ class ProcessVersionSelector extends StatelessWidget {
           subtitle: const Text(
             'No hay versiones publicadas. Primero publicá una versión en Procesos.',
           ),
+          trailing: const Chip(label: Text('No asignable')),
         ),
       );
     }
@@ -57,10 +58,9 @@ class ProcessVersionSelector extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             DropdownButtonFormField<String>(
+              key: ValueKey('${group.process.id}:${selected?.id ?? ''}'),
               initialValue: selected?.id,
-              decoration: const InputDecoration(
-                labelText: 'Versión publicada',
-              ),
+              decoration: const InputDecoration(labelText: 'Versión publicada'),
               items: [
                 for (final version in versions)
                   DropdownMenuItem(

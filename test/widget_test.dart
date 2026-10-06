@@ -326,7 +326,7 @@ void main() {
     container.read(appRouterProvider).go(RouteNames.integrationsPath);
     await tester.pumpAndSettle();
 
-    expect(find.text('Probar integraciones'), findsOneWidget);
+    expect(find.text('Verificar de nuevo'), findsOneWidget);
     expect(find.text('Sin información'), findsNWidgets(2));
     expect(find.text('Integraciones'), findsNWidgets(2));
   });

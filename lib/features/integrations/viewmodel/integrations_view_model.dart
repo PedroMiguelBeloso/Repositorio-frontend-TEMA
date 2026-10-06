@@ -42,16 +42,19 @@ class IntegrationsViewModel extends AsyncNotifier<IntegrationsViewState> {
 
   @override
   Future<IntegrationsViewState> build() async {
-    final statuses = await ref.watch(integrationsRepositoryProvider).loadStatuses();
+    final statuses = await ref
+        .watch(integrationsRepositoryProvider)
+        .testIntegrations();
     return IntegrationsViewState(statuses: statuses);
   }
 
   Future<void> retry() async {
     state = const AsyncLoading<IntegrationsViewState>();
     state = await AsyncValue.guard(
-      () => ref.read(integrationsRepositoryProvider).loadStatuses().then(
-        (statuses) => IntegrationsViewState(statuses: statuses),
-      ),
+      () => ref
+          .read(integrationsRepositoryProvider)
+          .testIntegrations()
+          .then((statuses) => IntegrationsViewState(statuses: statuses)),
     );
   }
 
@@ -100,5 +103,6 @@ class IntegrationsViewModel extends AsyncNotifier<IntegrationsViewState> {
 final integrationsViewModelProvider =
     AsyncNotifierProvider<IntegrationsViewModel, IntegrationsViewState>(
       IntegrationsViewModel.new,
+      isAutoDispose: true,
       retry: (retryCount, error) => null,
     );
