@@ -15,6 +15,7 @@ import 'package:proyecto_tema_frontend/features/services/model/service_models.da
     hide ProcessStatus;
 import 'package:proyecto_tema_frontend/features/services/viewmodel/service_list_view_model.dart';
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/new_verification_view_model.dart';
+import 'package:proyecto_tema_frontend/features/verifications/viewmodel/verification_history_view_model.dart';
 import 'package:proyecto_tema_frontend/features/users/data/dto/user_dtos.dart';
 import 'package:proyecto_tema_frontend/features/users/data/user_repository.dart';
 import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository.dart';
@@ -508,6 +509,9 @@ Future<ProviderContainer> _pumpApp(
         newVerificationViewModelProvider.overrideWith(
           _TestNewVerificationViewModel.new,
         ),
+        verificationHistoryViewModelProvider.overrideWith(
+          _TestVerificationHistoryViewModel.new,
+        ),
         processStructureRepositoryProvider.overrideWithValue(
           _TestProcessRepository(),
         ),
@@ -524,6 +528,21 @@ Future<ProviderContainer> _pumpApp(
   );
   await tester.pumpAndSettle();
   return ProviderScope.containerOf(tester.element(find.byType(App)));
+}
+
+
+class _TestVerificationHistoryViewModel extends VerificationHistoryViewModel {
+  @override
+  Future<VerificationHistoryState> build() async => VerificationHistoryState(
+    items: const [],
+    page: const PageInfo(
+      page: 0,
+      size: verificationHistoryPageSize,
+      totalElements: 0,
+      totalPages: 0,
+    ),
+    services: const [],
+  );
 }
 
 class _TestProcessListViewModel extends ProcessListViewModel {

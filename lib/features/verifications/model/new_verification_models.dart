@@ -2,11 +2,19 @@ import '../../services/model/service_models.dart';
 
 enum VerificationScope {
   process('PROCESS', 'Proceso completo'),
-  macroActivity('MACRO_ACTIVITY', 'Una macroactividad');
+  macroActivity('MACRO_ACTIVITY', 'Una macroactividad'),
+  unknown('UNKNOWN', 'Alcance no reconocido');
 
   const VerificationScope(this.apiValue, this.label);
   final String apiValue;
   final String label;
+
+  static VerificationScope fromApi(String? value) {
+    return VerificationScope.values.firstWhere(
+      (scope) => scope.apiValue == value,
+      orElse: () => VerificationScope.unknown,
+    );
+  }
 }
 
 class VerifiableProcess {
