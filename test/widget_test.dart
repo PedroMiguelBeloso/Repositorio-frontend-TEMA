@@ -14,6 +14,7 @@ import 'package:proyecto_tema_frontend/features/processes/viewmodel/process_list
 import 'package:proyecto_tema_frontend/features/services/model/service_models.dart'
     hide ProcessStatus;
 import 'package:proyecto_tema_frontend/features/services/viewmodel/service_list_view_model.dart';
+import 'package:proyecto_tema_frontend/features/verifications/viewmodel/new_verification_view_model.dart';
 import 'package:proyecto_tema_frontend/features/users/data/dto/user_dtos.dart';
 import 'package:proyecto_tema_frontend/features/users/data/user_repository.dart';
 import 'package:proyecto_tema_frontend/features/processes/data/process_structure_repository.dart';
@@ -33,8 +34,8 @@ void main() {
       (RouteNames.processesPath, 'Procesos', false),
       ('/processes/process-42', 'Detalle del proceso', false),
       ('/processes/process-42/history', 'Historial de versiones', false),
-      (RouteNames.verificationsPath, 'Verificaciones', true),
-      (RouteNames.newVerificationPath, 'Nueva verificación', true),
+      (RouteNames.verificationsPath, 'Verificaciones', false),
+      (RouteNames.newVerificationPath, 'Nueva verificación', false),
       ('/verifications/run-42', 'Detalle de verificación', true),
       ('/verifications/run-42/results', 'Resultados de verificación', true),
       (RouteNames.integrationsPath, 'Integraciones', false),
@@ -487,6 +488,12 @@ void main() {
   });
 }
 
+class _TestNewVerificationViewModel extends NewVerificationViewModel {
+  @override
+  Future<NewVerificationState> build() async =>
+      const NewVerificationState(services: []);
+}
+
 Future<ProviderContainer> _pumpApp(
   WidgetTester tester, {
   Session? session,
@@ -497,6 +504,9 @@ Future<ProviderContainer> _pumpApp(
         sessionProvider.overrideWith(() => _TestSessionNotifier(session)),
         serviceListViewModelProvider.overrideWith(
           _TestServiceListViewModel.new,
+        ),
+        newVerificationViewModelProvider.overrideWith(
+          _TestNewVerificationViewModel.new,
         ),
         processStructureRepositoryProvider.overrideWithValue(
           _TestProcessRepository(),
