@@ -9,6 +9,8 @@ import '../../services/data/service_repository_provider.dart';
 import '../../services/data/service_repository.dart';
 import '../../services/model/service_models.dart';
 import '../model/new_verification_models.dart';
+import '../model/verification_history_models.dart';
+import 'dto/verification_history_dtos.dart';
 import 'verification_repository.dart';
 
 final verificationRepositoryProvider = Provider<VerificationRepository>(
@@ -29,6 +31,36 @@ class VerificationRepositoryImpl implements VerificationRepository {
     required int page,
     required int size,
   }) => _services.listServices(page: page, size: size);
+
+  @override
+  Future<PagedResult<VerificationRunSummary>> listRuns({
+    required int page,
+    required int size,
+    String? serviceId,
+  }) async {
+    try {
+      final response = await _api.get(
+        '/verifications',
+        queryParameters: {
+          'page': page,
+          'size': size,
+          if (serviceId != null && serviceId.trim().isNotEmpty)
+            'serviceId': serviceId,
+        },
+      );
+      return VerificationHistoryPageDto.fromJson(
+        _map(response.data),
+      ).toModel();
+    } on DioException catch (error) {
+      throw _mapper.map(error);
+    } on AppFailure {
+      rethrow;
+    } catch (_) {
+      throw const UnexpectedFailure(
+        'La respuesta del historial de verificaciones no tiene un formato válido.',
+      );
+    }
+  }
 
   @override
   Future<List<VerifiableProcess>> verifiableProcesses(String serviceId) async {
@@ -83,9 +115,7 @@ class VerificationRepositoryImpl implements VerificationRepository {
         serviceId: _string(json, 'serviceId'),
         serviceRevision: json['serviceRevision'] as int,
         processVersionId: _string(json, 'processVersionId'),
-        scope: VerificationScope.values.firstWhere(
-          (v) => v.apiValue == json['scope'],
-        ),
+        scope: VerificationScope.fromApi(json['scope'] as String?),
         macroActivityId: json['macroActivityId'] as String?,
         expectations: _list(json['expectations'])
             .map(

@@ -6,6 +6,7 @@ import 'package:proyecto_tema_frontend/features/services/model/service_models.da
 import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository.dart';
 import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository_impl.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/new_verification_models.dart';
+import 'package:proyecto_tema_frontend/features/verifications/model/verification_history_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/new_verification_view_model.dart';
 
 void main() {
@@ -150,6 +151,16 @@ class _FakeRepository implements VerificationRepository {
   }) async => PagedResult(
     items: [_service],
     page: const PageInfo(page: 0, size: 100, totalElements: 1, totalPages: 1),
+  );
+
+  @override
+  Future<PagedResult<VerificationRunSummary>> listRuns({
+    required int page,
+    required int size,
+    String? serviceId,
+  }) async => const PagedResult(
+    items: [],
+    page: PageInfo(page: 0, size: 20, totalElements: 0, totalPages: 0),
   );
 
   @override

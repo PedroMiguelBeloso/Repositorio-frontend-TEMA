@@ -24,6 +24,7 @@ import '../../features/services/view/service_detail_page.dart';
 import '../../features/services/view/service_form_page.dart';
 import '../../features/services/view/service_list_page.dart';
 import '../../features/verifications/view/new_verification_page.dart';
+import '../../features/verifications/view/verification_history_page.dart';
 import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -181,7 +182,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.verificationsName,
             path: RouteNames.verificationsPath,
-            builder: (context, state) => const VerificationsLandingPage(),
+            builder: (context, state) => const VerificationHistoryPage(),
           ),
           GoRoute(
             name: RouteNames.newVerificationName,

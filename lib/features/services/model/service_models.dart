@@ -189,6 +189,13 @@ class Service {
   final ServiceSource sources;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  ServiceProcess? processForVersion(String processVersionId) {
+    for (final process in processes) {
+      if (process.processVersionId == processVersionId) return process;
+    }
+    return null;
+  }
 }
 
 class DriveFolderOption {

@@ -4,62 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/route_names.dart';
 import '../../../app/theme/app_theme.dart';
-import '../../../core/auth/session_provider.dart';
 import '../../../core/widgets/app_error_view.dart';
 import '../../../core/errors/app_failure.dart';
 import '../model/new_verification_models.dart';
 import '../viewmodel/new_verification_view_model.dart';
-
-class VerificationsLandingPage extends ConsumerWidget {
-  const VerificationsLandingPage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isAdmin = ref.watch(sessionProvider)?.isAdmin == true;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Verificaciones')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 540),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Card.outlined(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.fact_check_outlined, size: 36),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      isAdmin ? 'Prepará una verificación' : 'Verificaciones',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      isAdmin
-                          ? 'Elegí un servicio, una versión publicada y el alcance. Antes de iniciar verás los registros que se comprobarán.'
-                          : 'La consulta de ejecuciones anteriores se incorporará en la siguiente etapa.',
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    if (isAdmin)
-                      FilledButton.icon(
-                        onPressed: () =>
-                            context.go(RouteNames.newVerificationPath),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Nueva verificación'),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class NewVerificationPage extends ConsumerStatefulWidget {
   const NewVerificationPage({super.key});
@@ -205,7 +153,9 @@ class _NewVerificationPageState extends ConsumerState<NewVerificationPage> {
                         const SizedBox(height: AppSpacing.lg),
                         SegmentedButton<VerificationScope>(
                           segments: [
-                            for (final scope in VerificationScope.values)
+                            for (final scope in VerificationScope.values.where(
+                              (scope) => scope != VerificationScope.unknown,
+                            ))
                               ButtonSegment(
                                 value: scope,
                                 label: Text(scope.label),
