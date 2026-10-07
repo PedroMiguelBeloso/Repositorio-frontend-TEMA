@@ -144,6 +144,16 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 	negocio de M2 no están implementados ni tratados como errores HTTP.
 - **Pruebas:** se verifican rutas, permisos, sesión, layout, Bearer presente y
 	ausente, y mapeo de errores sin backend real.
+- **Verificaciones M2 (selector de tickets):** `/verifications/new` usa el
+	endpoint `POST /verifications/preview` para obtener `ticketSelectionGroups`,
+	separa la lógica por `groupId` y valida el comportamiento para `ONE` y
+	`MULTIPLE` sin inferir relaciones por nombre. La selección se construye
+	mediante `StartVerificationRequest.ticketSelections` con el formato
+	`[{ groupId, ticketIds: [...] }]`, y el botón de inicio queda habilitado solo
+	cuando se cumple la selección obligatoria del grupo. La búsqueda de tickets
+	realiza `GET /services/{serviceId}/tickets` con paginación y el resumen de
+	selección se refleja en chips con posibilidad de eliminación. El flujo no crea
+	un selector alternativo ni inventa grupos cuando la API no devuelve tickets.
 - **Integraciones (WBS 5.3.5):** `/settings/integrations` consulta
 	`GET /integrations/status` y prueba lectura mediante `POST /integrations/test`
 	con `ApiClient`. Los tests sustituyen `IntegrationsRepository` por un fake de
@@ -168,7 +178,7 @@ de Administrador vuelve a `/`.
 | `/processes/:processId/versions/:versionId/structure` | `process-structure` | Redirige a `/login` | Consulta | Edición solo en borrador | Funcional |
 | `/services` | `services` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications` | `verifications` | Redirige a `/login` | Permitida | Permitida | Temporal |
-| `/verifications/new` | `new-verification` | Redirige a `/login` | Redirige a `/` | Permitida | Temporal |
+| `/verifications/new` | `new-verification` | Redirige a `/login` | Redirige a `/` | Permitida | Funcional |
 | `/verifications/:runId` | `verification-details` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications/:runId/results` | `verification-results` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/settings/integrations` | `integrations` | Redirige a `/login` | Redirige a `/` | Permitida | Funcional |
@@ -229,6 +239,13 @@ No issues found! (ran in 4.1s)
 
 ```text
 00:18 +110: All tests passed!
+```
+
+`flutter analyze && flutter test test/features/verifications/new_verification_ticket_selection_test.dart`:
+
+```text
+No issues found!
+00:02 +3: All tests passed!
 ```
 
 `flutter run -d chrome`:
