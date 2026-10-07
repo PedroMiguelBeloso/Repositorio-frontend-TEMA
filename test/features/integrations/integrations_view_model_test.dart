@@ -11,22 +11,26 @@ import 'package:proyecto_tema_frontend/features/integrations/model/integration_s
 import 'package:proyecto_tema_frontend/features/integrations/viewmodel/integrations_view_model.dart';
 
 void main() {
-  test('loads the initial integration statuses', () async {
+  test('verifies the integrations on initial load', () async {
     final repository = _FakeIntegrationsRepository(statuses: _initialStatuses);
     final container = _container(repository);
     addTearDown(container.dispose);
 
     final state = await container.read(integrationsViewModelProvider.future);
 
-    expect(state.statusFor(IntegrationSource.drive)?.state,
-        IntegrationState.available);
-    expect(repository.loadCalls, 1);
+    expect(
+      state.statusFor(IntegrationSource.drive)?.state,
+      IntegrationState.available,
+    );
+    expect(repository.testCalls, 1);
+    expect(repository.loadCalls, 0);
   });
 
-  test('initial load errors can be retried', () async {
+  test('initial verification errors can be retried', () async {
     final repository = _FakeIntegrationsRepository(
       statuses: _initialStatuses,
-      loadFailure: const NetworkFailure('No se pudo conectar.'),
+      testFailure: const NetworkFailure('No se pudo conectar.'),
+      failFirstTest: true,
     );
     final container = _container(repository);
     addTearDown(container.dispose);
@@ -37,53 +41,59 @@ void main() {
     );
     expect(container.read(integrationsViewModelProvider), isA<AsyncError>());
 
-    await container
-        .read(integrationsViewModelProvider.notifier)
-        .retry();
+    await container.read(integrationsViewModelProvider.notifier).retry();
 
-    expect(container.read(integrationsViewModelProvider).value?.statuses,
-        _initialStatuses);
-    expect(repository.loadCalls, 2);
-  });
-
-  test('successful test replaces the statuses returned by initial load', () async {
-    final repository = _FakeIntegrationsRepository(
-      statuses: _initialStatuses,
-      testStatuses: _updatedStatuses,
+    expect(
+      container.read(integrationsViewModelProvider).value?.statuses,
+      _initialStatuses,
     );
-    final container = _container(repository);
-    addTearDown(container.dispose);
-    await container.read(integrationsViewModelProvider.future);
-
-    await container
-        .read(integrationsViewModelProvider.notifier)
-        .testIntegrations();
-
-    final state = container.read(integrationsViewModelProvider).requireValue;
-    expect(state.statuses, _updatedStatuses);
-    expect(state.isTesting, isFalse);
-    expect(state.actionFailure, isNull);
-    expect(repository.testCalls, 1);
+    expect(repository.testCalls, 2);
   });
 
-  test('failed test keeps the last statuses and exposes a safe failure', () async {
-    final repository = _FakeIntegrationsRepository(
-      statuses: _initialStatuses,
-      testFailure: const NetworkFailure('No se pudo conectar.'),
-    );
-    final container = _container(repository);
-    addTearDown(container.dispose);
-    await container.read(integrationsViewModelProvider.future);
+  test(
+    'successful test replaces the statuses returned by initial load',
+    () async {
+      final repository = _FakeIntegrationsRepository(
+        statuses: _initialStatuses,
+        testStatuses: _updatedStatuses,
+      );
+      final container = _container(repository);
+      addTearDown(container.dispose);
+      await container.read(integrationsViewModelProvider.future);
 
-    await container
-        .read(integrationsViewModelProvider.notifier)
-        .testIntegrations();
+      await container
+          .read(integrationsViewModelProvider.notifier)
+          .testIntegrations();
 
-    final state = container.read(integrationsViewModelProvider).requireValue;
-    expect(state.statuses, _initialStatuses);
-    expect(state.actionFailure?.message, 'No se pudo conectar.');
-    expect(state.isTesting, isFalse);
-  });
+      final state = container.read(integrationsViewModelProvider).requireValue;
+      expect(state.statuses, _updatedStatuses);
+      expect(state.isTesting, isFalse);
+      expect(state.actionFailure, isNull);
+      expect(repository.testCalls, 2);
+    },
+  );
+
+  test(
+    'failed test keeps the last statuses and exposes a safe failure',
+    () async {
+      final repository = _FakeIntegrationsRepository(
+        statuses: _initialStatuses,
+        testFailure: const NetworkFailure('No se pudo conectar.'),
+      );
+      final container = _container(repository);
+      addTearDown(container.dispose);
+      await container.read(integrationsViewModelProvider.future);
+
+      await container
+          .read(integrationsViewModelProvider.notifier)
+          .testIntegrations();
+
+      final state = container.read(integrationsViewModelProvider).requireValue;
+      expect(state.statuses, _initialStatuses);
+      expect(state.actionFailure?.message, 'No se pudo conectar.');
+      expect(state.isTesting, isFalse);
+    },
+  );
 
   test('ignores a second test call while the first is in progress', () async {
     final completion = Completer<List<IntegrationStatus>>();
@@ -99,8 +109,11 @@ void main() {
     final firstCall = notifier.testIntegrations();
     final secondCall = notifier.testIntegrations();
 
-    expect(repository.testCalls, 1);
-    expect(container.read(integrationsViewModelProvider).value?.isTesting, isTrue);
+    expect(repository.testCalls, 2);
+    expect(
+      container.read(integrationsViewModelProvider).value?.isTesting,
+      isTrue,
+    );
     completion.complete(_updatedStatuses);
     await Future.wait([firstCall, secondCall]);
   });
@@ -118,12 +131,13 @@ void main() {
   });
 }
 
-ProviderContainer _container(_FakeIntegrationsRepository repository) =>
-    ProviderContainer(
-      overrides: [
-        integrationsRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
+ProviderContainer _container(_FakeIntegrationsRepository repository) {
+  final container = ProviderContainer(
+    overrides: [integrationsRepositoryProvider.overrideWithValue(repository)],
+  );
+  container.listen(integrationsViewModelProvider, (_, _) {});
+  return container;
+}
 
 final _initialStatuses = [
   IntegrationStatus(
@@ -155,15 +169,15 @@ class _FakeIntegrationsRepository implements IntegrationsRepository {
   _FakeIntegrationsRepository({
     required this.statuses,
     this.testStatuses = const [],
-    this.loadFailure,
     this.testFailure,
+    this.failFirstTest = false,
     this.testCompleter,
   });
 
   final List<IntegrationStatus> statuses;
   final List<IntegrationStatus> testStatuses;
-  AppFailure? loadFailure;
   final AppFailure? testFailure;
+  final bool failFirstTest;
   final Completer<List<IntegrationStatus>>? testCompleter;
   int loadCalls = 0;
   int testCalls = 0;
@@ -171,19 +185,20 @@ class _FakeIntegrationsRepository implements IntegrationsRepository {
   @override
   Future<List<IntegrationStatus>> loadStatuses() async {
     loadCalls++;
-    final failure = loadFailure;
-    if (failure != null) {
-      loadFailure = null;
-      throw failure;
-    }
     return statuses;
   }
 
   @override
   Future<List<IntegrationStatus>> testIntegrations() {
     testCalls++;
+    if (testFailure != null &&
+        (failFirstTest ? testCalls == 1 : testCalls > 1)) {
+      throw testFailure!;
+    }
+    if (testCalls == 1 || testStatuses.isEmpty && testCompleter == null) {
+      return Future.value(statuses);
+    }
     if (testCompleter != null) return testCompleter!.future;
-    if (testFailure != null) throw testFailure!;
     return Future.value(testStatuses);
   }
 }

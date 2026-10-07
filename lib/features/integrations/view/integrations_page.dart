@@ -36,15 +36,18 @@ class IntegrationsPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Integraciones', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            'Integraciones',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Estado general de las conexiones con Google Drive y Redmine. '
             'La disponibilidad no confirma el acceso a carpetas o proyectos '
             'configurados por servicio.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.xl),
           Expanded(
@@ -110,7 +113,7 @@ class _IntegrationContent extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.sync),
-                label: const Text('Probar integraciones'),
+                label: const Text('Verificar de nuevo'),
               ),
             ],
           ),

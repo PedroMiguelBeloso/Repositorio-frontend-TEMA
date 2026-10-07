@@ -30,30 +30,37 @@ class RegistryIndexPage extends StatelessWidget {
 Future<RegistryDefinition?> selectRegistryDefinition(BuildContext context) =>
     showDialog<RegistryDefinition>(
       context: context,
-      builder: (context) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640, maxHeight: 650),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Seleccionar registro',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                const Expanded(
-                  child: RegistryCatalogContent(selectionMode: true),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cerrar'),
+      builder: (context) => ProviderScope(
+        overrides: [
+          registryCatalogViewModelProvider.overrideWith(
+            RegistryCatalogViewModel.new,
+          ),
+        ],
+        child: Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640, maxHeight: 650),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Seleccionar registro',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.md),
+                  const Expanded(
+                    child: RegistryCatalogContent(selectionMode: true),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cerrar'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

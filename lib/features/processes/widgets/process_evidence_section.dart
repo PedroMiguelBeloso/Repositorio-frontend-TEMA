@@ -262,8 +262,8 @@ class _EvidenceDialogState extends State<_EvidenceDialog> {
             TextField(
               controller: _displayName,
               decoration: const InputDecoration(
-                labelText: 'Nombre en este proceso',
-                helperText: 'Dejalo vacío para usar el nombre del índice.',
+                labelText: 'Nombre en este proceso (opcional)',
+                helperText: 'Solo cambia cómo se muestra aquí; no cambia la nomenclatura de búsqueda.',
               ),
             ),
             const SizedBox(height: AppSpacing.md),

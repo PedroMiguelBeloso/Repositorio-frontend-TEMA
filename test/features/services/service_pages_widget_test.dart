@@ -11,35 +11,32 @@ import 'package:proyecto_tema_frontend/features/services/view/service_detail_pag
 import 'package:proyecto_tema_frontend/features/services/view/service_form_page.dart';
 
 void main() {
-  testWidgets(
-    'reader can view service detail without the edit action',
-    (tester) async {
-      final repository = _FakeServiceRepository(_service);
+  testWidgets('reader can view service detail without the edit action', (
+    tester,
+  ) async {
+    final repository = _FakeServiceRepository(_service);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            serviceRepositoryProvider.overrideWithValue(repository),
-            sessionProvider.overrideWith(
-              () => _TestSessionNotifier(
-                const Session(role: UserRole.reader),
-              ),
-            ),
-          ],
-          child: const MaterialApp(
-            home: ServiceDetailPage(serviceId: 'service-1'),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          serviceRepositoryProvider.overrideWithValue(repository),
+          sessionProvider.overrideWith(
+            () => _TestSessionNotifier(const Session(role: UserRole.reader)),
           ),
+        ],
+        child: const MaterialApp(
+          home: ServiceDetailPage(serviceId: 'service-1'),
         ),
-      );
+      ),
+    );
 
-      await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
 
-      expect(find.text('Detalle del servicio'), findsOneWidget);
-      expect(find.text('Servicio Norte'), findsOneWidget);
-      expect(find.text('Editar'), findsNothing);
-      expect(find.byIcon(Icons.edit_outlined), findsNothing);
-    },
-  );
+    expect(find.text('Detalle del servicio'), findsOneWidget);
+    expect(find.text('Servicio Norte'), findsOneWidget);
+    expect(find.text('Editar'), findsNothing);
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
+  });
 
   testWidgets(
     'service form exposes exactly the five configured service types',
@@ -48,12 +45,8 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            serviceRepositoryProvider.overrideWithValue(repository),
-          ],
-          child: const MaterialApp(
-            home: ServiceFormPage(),
-          ),
+          overrides: [serviceRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: ServiceFormPage()),
         ),
       );
 
@@ -68,6 +61,56 @@ void main() {
       expect(find.text('Proyecto SAP Ariba'), findsOneWidget);
       expect(find.text('Proyecto ERP'), findsOneWidget);
       expect(find.text('Tipo no reconocido'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'new service starts active and warns before saving without processes',
+    (tester) async {
+      final repository = _FakeServiceRepository(_service);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [serviceRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: ServiceFormPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('El servicio se crea como Activo'),
+        findsOneWidget,
+      );
+      expect(find.byType(DropdownButtonFormField<ServiceStatus>), findsNothing);
+      expect(
+        find.text('Todavía no seleccionaste ningún proceso.'),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nombre del servicio'),
+        'Nuevo servicio',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Cliente'),
+        'Cliente',
+      );
+      await tester.tap(find.byType(DropdownButtonFormField<ServiceType>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Soporte ERP').last);
+      await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Guardar'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+      await tester.tap(find.text('Guardar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Servicio sin procesos asignados'), findsOneWidget);
+      expect(repository.createCalls, 0);
+      await tester.tap(find.text('Volver al formulario'));
+      await tester.pumpAndSettle();
+      expect(repository.createCalls, 0);
     },
   );
 }
@@ -94,6 +137,7 @@ class _FakeServiceRepository implements ServiceRepository {
   _FakeServiceRepository(this.service);
 
   final Service service;
+  int createCalls = 0;
 
   @override
   Future<PagedResult<Service>> listServices({
@@ -102,12 +146,7 @@ class _FakeServiceRepository implements ServiceRepository {
   }) async {
     return PagedResult(
       items: [service],
-      page: const PageInfo(
-        page: 0,
-        size: 20,
-        totalElements: 1,
-        totalPages: 1,
-      ),
+      page: const PageInfo(page: 0, size: 20, totalElements: 1, totalPages: 1),
     );
   }
 
@@ -115,7 +154,10 @@ class _FakeServiceRepository implements ServiceRepository {
   Future<Service> getService(String id) async => service;
 
   @override
-  Future<Service> createService(ServiceInput input) async => service;
+  Future<Service> createService(ServiceInput input) async {
+    createCalls++;
+    return service;
+  }
 
   @override
   Future<Service> updateService(String id, ServiceInput input) async => service;
@@ -132,12 +174,7 @@ class _FakeServiceRepository implements ServiceRepository {
   }) async {
     return const PagedResult(
       items: [],
-      page: PageInfo(
-        page: 0,
-        size: 10,
-        totalElements: 0,
-        totalPages: 0,
-      ),
+      page: PageInfo(page: 0, size: 10, totalElements: 0, totalPages: 0),
     );
   }
 
@@ -148,12 +185,7 @@ class _FakeServiceRepository implements ServiceRepository {
   }) async {
     return const PagedResult(
       items: [],
-      page: PageInfo(
-        page: 0,
-        size: 10,
-        totalElements: 0,
-        totalPages: 0,
-      ),
+      page: PageInfo(page: 0, size: 10, totalElements: 0, totalPages: 0),
     );
   }
 }

@@ -27,8 +27,9 @@ void main() {
     expect(find.text('Redmine'), findsOneWidget);
     expect(find.text('Disponible'), findsOneWidget);
     expect(find.text('Error de autenticación'), findsOneWidget);
-    expect(find.text('Probar integraciones'), findsOneWidget);
+    expect(find.text('Verificar de nuevo'), findsOneWidget);
     expect(find.textContaining('Última comprobación:'), findsNWidgets(2));
+    expect(repository.testCalls, 1);
   });
 
   testWidgets('test action is disabled with progress until response arrives', (
@@ -44,15 +45,15 @@ void main() {
 
     await tester.pumpWidget(_subject(container));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Probar integraciones'));
+    await tester.tap(find.text('Verificar de nuevo'));
     await tester.pump();
 
     final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Probar integraciones'),
+      find.widgetWithText(FilledButton, 'Verificar de nuevo'),
     );
     expect(button.onPressed, isNull);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(repository.testCalls, 1);
+    expect(repository.testCalls, 2);
 
     completion.complete(_updatedStatuses);
     await tester.pumpAndSettle();
@@ -74,7 +75,7 @@ void main() {
 
     await tester.pumpWidget(_subject(container));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Probar integraciones'));
+    await tester.tap(find.text('Verificar de nuevo'));
     await tester.pump();
     completion.completeError(const NetworkFailure('No se pudo conectar.'));
     await tester.pumpAndSettle();
@@ -82,7 +83,7 @@ void main() {
     expect(find.text('Disponible'), findsOneWidget);
     expect(find.text('Error de autenticación'), findsOneWidget);
     expect(find.text('No se pudo conectar.'), findsOneWidget);
-    expect(repository.testCalls, 1);
+    expect(repository.testCalls, 2);
   });
 
   testWidgets('load error shows retry and retry reloads the page', (
@@ -104,15 +105,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Disponible'), findsOneWidget);
-    expect(repository.loadCalls, 2);
+    expect(repository.testCalls, 2);
   });
 
   testWidgets('missing source is shown as Sin información without a date', (
     tester,
   ) async {
-    final repository = _FakeIntegrationsRepository(
-      statuses: [_statuses.first],
-    );
+    final repository = _FakeIntegrationsRepository(statuses: [_statuses.first]);
     final container = _container(repository);
     addTearDown(container.dispose);
 
@@ -148,9 +147,7 @@ void main() {
 
 ProviderContainer _container(_FakeIntegrationsRepository repository) =>
     ProviderContainer(
-      overrides: [
-        integrationsRepositoryProvider.overrideWithValue(repository),
-      ],
+      overrides: [integrationsRepositoryProvider.overrideWithValue(repository)],
     );
 
 Widget _subject(ProviderContainer container) => UncontrolledProviderScope(
@@ -214,6 +211,13 @@ class _FakeIntegrationsRepository implements IntegrationsRepository {
   @override
   Future<List<IntegrationStatus>> testIntegrations() {
     testCalls++;
+    if (failFirstLoad) {
+      failFirstLoad = false;
+      throw const NetworkFailure('No se pudo conectar.');
+    }
+    if (testCalls == 1 || testCompleter == null) {
+      return Future.value(statuses);
+    }
     return testCompleter?.future ?? Future.value(_updatedStatuses);
   }
 }
