@@ -10,7 +10,9 @@ import '../../services/data/service_repository.dart';
 import '../../services/model/service_models.dart';
 import '../model/new_verification_models.dart';
 import '../model/verification_history_models.dart';
+import '../model/verification_result_models.dart';
 import 'dto/verification_history_dtos.dart';
+import 'dto/verification_result_dtos.dart';
 import 'verification_repository.dart';
 
 final verificationRepositoryProvider = Provider<VerificationRepository>(
@@ -56,6 +58,31 @@ class VerificationRepositoryImpl implements VerificationRepository {
     } catch (_) {
       throw const UnexpectedFailure(
         'La respuesta del historial de verificaciones no tiene un formato válido.',
+      );
+    }
+  }
+
+  @override
+  Future<PagedResult<VerificationResult>> listResults({
+    required String runId,
+    required int page,
+    required int size,
+  }) async {
+    try {
+      final response = await _api.get(
+        '/verifications/$runId/results',
+        queryParameters: {'page': page, 'size': size},
+      );
+      return VerificationResultPageDto.fromJson(
+        _map(response.data),
+      ).toModel();
+    } on DioException catch (error) {
+      throw _mapper.map(error);
+    } on AppFailure {
+      rethrow;
+    } catch (_) {
+      throw const UnexpectedFailure(
+        'La respuesta de resultados de la verificación no tiene un formato válido.',
       );
     }
   }

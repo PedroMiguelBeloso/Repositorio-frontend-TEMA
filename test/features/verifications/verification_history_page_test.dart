@@ -9,6 +9,7 @@ import 'package:proyecto_tema_frontend/features/verifications/data/verification_
 import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository_impl.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/new_verification_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/verification_history_models.dart';
+import 'package:proyecto_tema_frontend/features/verifications/model/verification_result_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/view/verification_history_page.dart';
 
 void main() {
@@ -442,6 +443,13 @@ class _HistoryRepository implements VerificationRepository {
   @override
   Future<VerificationRun> getVerification(String runId) async =>
       throw UnimplementedError();
+
+  @override
+  Future<PagedResult<VerificationResult>> listResults({
+    required String runId,
+    required int page,
+    required int size,
+  }) => throw UnimplementedError();
 
   @override
   Future<PagedResult<Service>> listServices({

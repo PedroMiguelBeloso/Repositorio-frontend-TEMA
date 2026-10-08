@@ -10,6 +10,7 @@ import 'package:proyecto_tema_frontend/features/verifications/data/verification_
 import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository_impl.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/new_verification_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/verification_history_models.dart';
+import 'package:proyecto_tema_frontend/features/verifications/model/verification_result_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/view/verification_run_page.dart';
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/verification_run_view_model.dart';
 
@@ -216,17 +217,14 @@ void main() {
       expect(indicator.value, 0.4);
     });
 
-    testWidgets('shows completed results action with placeholder disclosure', (
+    testWidgets('shows completed results action', (
       tester,
     ) async {
       await _mountPage(tester, _run(VerificationRunStatus.completed));
 
       expect(find.text('Finalizada').first, findsOneWidget);
       expect(find.text('Ver resultados'), findsOneWidget);
-      expect(
-        find.text('La pantalla de resultados aún está en desarrollo.'),
-        findsOneWidget,
-      );
+      expect(find.text('La pantalla de resultados aún está en desarrollo.'), findsNothing);
     });
 
     testWidgets('shows backend failure details without retrying the run', (
@@ -323,6 +321,13 @@ class _RunRepository implements VerificationRepository {
       _active--;
     }
   }
+
+  @override
+  Future<PagedResult<VerificationResult>> listResults({
+    required String runId,
+    required int page,
+    required int size,
+  }) => throw UnimplementedError();
 
   @override
   Future<PagedResult<Service>> listServices({

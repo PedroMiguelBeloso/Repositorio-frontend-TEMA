@@ -8,6 +8,7 @@ import 'package:proyecto_tema_frontend/features/services/data/service_repository
 import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository_impl.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/verification_history_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/new_verification_models.dart';
+import 'package:proyecto_tema_frontend/features/verifications/model/verification_result_models.dart';
 import 'package:proyecto_tema_frontend/core/errors/app_failure.dart';
 
 void main() {
@@ -86,6 +87,38 @@ void main() {
     },
   );
 
+  test('loads paginated results and maps applicability, references and ticket scope', () async {
+    final adapter = _VerificationAdapter();
+    final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+      ..httpClientAdapter = adapter;
+    final repository = VerificationRepositoryImpl(
+      ApiClient(dio),
+      ServiceRepositoryImpl(ApiClient(dio)),
+    );
+
+    final results = await repository.listResults(
+      runId: 'run-results',
+      page: 1,
+      size: 20,
+    );
+
+    expect(adapter.resultsPath, '/api/v1/verifications/run-results/results');
+    expect(adapter.resultsQueryParameters, {'page': 1, 'size': 20});
+    expect(results.page.page, 1);
+    expect(results.page.totalElements, 21);
+    expect(results.page.totalPages, 2);
+    expect(results.items.single.displayName, 'Ticket actualizado');
+    expect(results.items.single.subjectTicketId, '204');
+    expect(results.items.single.effectiveStatus, VerificationResultStatus.reviewRequired);
+    expect(results.items.single.proposedStatus, VerificationResultStatus.complies);
+    expect(results.items.single.applicability.decision, ApplicabilityDecision.undetermined);
+    expect(results.items.single.applicability.origin, DecisionOrigin.aiApplicability);
+    expect(results.items.single.evidence.single.source, EvidenceSource.redmine);
+    expect(results.items.single.evidence.single.ticketId, '204');
+    expect(results.items.single.evidence.single.webUrl, 'https://redmine.example/tickets/204');
+    expect(results.items.single.humanDecisions.single.decisionType, HumanDecisionType.resultStatus);
+  });
+
   test('loads and maps a run from its detail endpoint', () async {
     final adapter = _VerificationAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
@@ -135,6 +168,8 @@ class _VerificationAdapter implements HttpClientAdapter {
   Map<String, dynamic>? startBody;
   Map<String, dynamic>? historyQueryParameters;
   String? detailPath;
+  String? resultsPath;
+  Map<String, dynamic>? resultsQueryParameters;
   bool runNotFound = false;
 
   @override
@@ -164,6 +199,57 @@ class _VerificationAdapter implements HttpClientAdapter {
             'required': true,
           },
         ],
+      }, 200);
+    }
+    if (path.endsWith('/results') && options.method == 'GET') {
+      resultsPath = path;
+      resultsQueryParameters = Map<String, dynamic>.from(options.queryParameters);
+      return _response({
+        'items': [
+          {
+            'id': 'result-204',
+            'runId': 'run-results',
+            'expectationId': 'expectation-ticket-update',
+            'macroActivityId': 'macro-1',
+            'activityId': 'activity-3',
+            'displayName': 'Ticket actualizado',
+            'evidenceType': 'TICKET',
+            'location': 'ACTIVITY_RECORD',
+            'subjectTicketId': '204',
+            'applicability': {
+              'decision': 'UNDETERMINED',
+              'origin': 'AI_APPLICABILITY',
+              'rationale': 'No hay información suficiente para resolver la aplicabilidad.',
+              'limitations': ['Falta contexto del caso.'],
+            },
+            'proposedStatus': 'COMPLIES',
+            'effectiveStatus': 'REVIEW_REQUIRED',
+            'rationale': 'La fuente está disponible pero requiere intervención.',
+            'limitations': ['La consulta de Redmine fue parcial.'],
+            'evidence': [
+              {
+                'kind': 'TICKET',
+                'source': 'REDMINE',
+                'externalId': '204',
+                'displayName': 'Ticket 204',
+                'webUrl': 'https://redmine.example/tickets/204',
+                'observedAt': '2026-10-08T12:00:00Z',
+                'ticketId': '204',
+              },
+            ],
+            'humanDecisions': [
+              {
+                'id': 'decision-1',
+                'decisionType': 'RESULT_STATUS',
+                'finalStatus': 'REVIEW_REQUIRED',
+                'rationale': 'El Administrador dejó el estado para revisión.',
+                'decidedAt': '2026-10-08T13:00:00Z',
+              },
+            ],
+            'revision': 1,
+          },
+        ],
+        'page': {'page': 1, 'size': 20, 'totalElements': 21, 'totalPages': 2},
       }, 200);
     }
     if (path.contains('/verifications/') &&

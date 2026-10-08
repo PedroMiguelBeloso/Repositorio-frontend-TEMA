@@ -18,6 +18,7 @@ import 'package:proyecto_tema_frontend/features/verifications/data/verification_
 import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository_impl.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/new_verification_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/verification_history_models.dart';
+import 'package:proyecto_tema_frontend/features/verifications/model/verification_result_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/new_verification_view_model.dart';
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/verification_history_view_model.dart';
 import 'package:proyecto_tema_frontend/features/users/data/dto/user_dtos.dart';
@@ -42,7 +43,7 @@ void main() {
       (RouteNames.verificationsPath, 'Verificaciones', false),
       (RouteNames.newVerificationPath, 'Nueva verificación', false),
       ('/verifications/run-42', 'Progreso de verificación', false),
-      ('/verifications/run-42/results', 'Resultados de verificación', true),
+      ('/verifications/run-42/results', 'Resultados de verificación', false),
       (RouteNames.integrationsPath, 'Integraciones', false),
     ];
 
@@ -564,6 +565,13 @@ class _TestVerificationRepository implements VerificationRepository {
         progress: RunProgress.fromValues(total: 1, processed: 1),
         startedAt: DateTime.utc(2026, 10, 7, 10),
       );
+
+  @override
+  Future<PagedResult<VerificationResult>> listResults({
+    required String runId,
+    required int page,
+    required int size,
+  }) => throw UnimplementedError();
 
   @override
   Future<PagedResult<Service>> listServices({

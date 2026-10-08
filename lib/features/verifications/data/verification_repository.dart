@@ -1,6 +1,7 @@
 import '../../services/model/service_models.dart';
 import '../model/new_verification_models.dart';
 import '../model/verification_history_models.dart';
+import '../model/verification_result_models.dart';
 
 abstract interface class VerificationRepository {
   Future<PagedResult<Service>> listServices({
@@ -13,6 +14,11 @@ abstract interface class VerificationRepository {
     String? serviceId,
   });
   Future<VerificationRun> getVerification(String runId);
+  Future<PagedResult<VerificationResult>> listResults({
+    required String runId,
+    required int page,
+    required int size,
+  });
   Future<List<VerifiableProcess>> verifiableProcesses(String serviceId);
   Future<VerificationPreview> preview(VerificationTarget target);
   Future<TicketPage> searchTickets(
