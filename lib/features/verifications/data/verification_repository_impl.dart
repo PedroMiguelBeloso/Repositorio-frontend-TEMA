@@ -48,9 +48,7 @@ class VerificationRepositoryImpl implements VerificationRepository {
             'serviceId': serviceId,
         },
       );
-      return VerificationHistoryPageDto.fromJson(
-        _map(response.data),
-      ).toModel();
+      return VerificationHistoryPageDto.fromJson(_map(response.data)).toModel();
     } on DioException catch (error) {
       throw _mapper.map(error);
     } on AppFailure {
@@ -58,6 +56,27 @@ class VerificationRepositoryImpl implements VerificationRepository {
     } catch (_) {
       throw const UnexpectedFailure(
         'La respuesta del historial de verificaciones no tiene un formato válido.',
+      );
+    }
+  }
+
+  @override
+  Future<VerificationRun> getVerification(String runId) async {
+    try {
+      final response = await _api.get('/verifications/$runId');
+      return VerificationRunDto.fromJson(_map(response.data)).toRun();
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        throw const UnexpectedFailure(
+          'La ejecución no existe o no se encuentra.',
+        );
+      }
+      throw _mapper.map(error);
+    } on AppFailure {
+      rethrow;
+    } catch (_) {
+      throw const UnexpectedFailure(
+        'La respuesta de la ejecución no tiene un formato válido.',
       );
     }
   }

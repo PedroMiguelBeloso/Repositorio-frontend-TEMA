@@ -10,36 +10,41 @@ import 'package:proyecto_tema_frontend/features/verifications/model/verification
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/verification_history_view_model.dart';
 
 void main() {
-  test('loads API page data and resolves service/process names from M1', () async {
-    final repository = _HistoryRepository(
-      runsByPage: {
-        0: PagedResult(
-          items: [_run('run-1', 'service-1', 'version-1', 4, 10)],
-          page: const PageInfo(
-            page: 0,
-            size: 20,
-            totalElements: 21,
-            totalPages: 2,
+  test(
+    'loads API page data and resolves service/process names from M1',
+    () async {
+      final repository = _HistoryRepository(
+        runsByPage: {
+          0: PagedResult(
+            items: [_run('run-1', 'service-1', 'version-1', 4, 10)],
+            page: const PageInfo(
+              page: 0,
+              size: 20,
+              totalElements: 21,
+              totalPages: 2,
+            ),
           ),
-        ),
-      },
-    );
-    final container = _createContainer(repository);
-    addTearDown(container.dispose);
+        },
+      );
+      final container = _createContainer(repository);
+      addTearDown(container.dispose);
 
-    await container.read(verificationHistoryViewModelProvider.future);
-    final state = container.read(verificationHistoryViewModelProvider).requireValue;
+      await container.read(verificationHistoryViewModelProvider.future);
+      final state = container
+          .read(verificationHistoryViewModelProvider)
+          .requireValue;
 
-    expect(repository.runRequests.single.page, 0);
-    expect(repository.runRequests.single.size, 20);
-    expect(repository.runRequests.single.serviceId, isNull);
-    expect(state.items.single.id, 'run-1');
-    expect(state.page.totalElements, 21);
-    expect(state.page.totalPages, 2);
-    expect(state.serviceFor(state.items.single)?.name, 'Servicio Alfa');
-    expect(state.processFor(state.items.single)?.processName, 'Start Up');
-    expect(state.processFor(state.items.single)?.officialVersion, '3.2');
-  });
+      expect(repository.runRequests.single.page, 0);
+      expect(repository.runRequests.single.size, 20);
+      expect(repository.runRequests.single.serviceId, isNull);
+      expect(state.items.single.id, 'run-1');
+      expect(state.page.totalElements, 21);
+      expect(state.page.totalPages, 2);
+      expect(state.serviceFor(state.items.single)?.name, 'Servicio Alfa');
+      expect(state.processFor(state.items.single)?.processName, 'Start Up');
+      expect(state.processFor(state.items.single)?.officialVersion, '3.2');
+    },
+  );
 
   test('changes service filter and always resets to first page', () async {
     final repository = _HistoryRepository(
@@ -81,10 +86,19 @@ void main() {
 
     await vm.goToPage(1);
     expect(repository.runRequests.last.page, 1);
-    expect(container.read(verificationHistoryViewModelProvider).requireValue.page.page, 1);
+    expect(
+      container
+          .read(verificationHistoryViewModelProvider)
+          .requireValue
+          .page
+          .page,
+      1,
+    );
 
     await vm.selectService('service-2');
-    var state = container.read(verificationHistoryViewModelProvider).requireValue;
+    var state = container
+        .read(verificationHistoryViewModelProvider)
+        .requireValue;
     expect(repository.runRequests.last.page, 0);
     expect(repository.runRequests.last.serviceId, 'service-2');
     expect(state.serviceId, 'service-2');
@@ -98,31 +112,36 @@ void main() {
     expect(state.serviceId, isNull);
   });
 
-  test('history still renders by ID when M1 service lookup is unavailable', () async {
-    final repository = _HistoryRepository(
-      runsByPage: {
-        0: PagedResult(
-          items: [_run('run-1', 'service-missing', 'version-missing', 1, 2)],
-          page: const PageInfo(
-            page: 0,
-            size: 20,
-            totalElements: 1,
-            totalPages: 1,
+  test(
+    'history still renders by ID when M1 service lookup is unavailable',
+    () async {
+      final repository = _HistoryRepository(
+        runsByPage: {
+          0: PagedResult(
+            items: [_run('run-1', 'service-missing', 'version-missing', 1, 2)],
+            page: const PageInfo(
+              page: 0,
+              size: 20,
+              totalElements: 1,
+              totalPages: 1,
+            ),
           ),
-        ),
-      },
-      failServiceLookup: true,
-    );
-    final container = _createContainer(repository);
-    addTearDown(container.dispose);
+        },
+        failServiceLookup: true,
+      );
+      final container = _createContainer(repository);
+      addTearDown(container.dispose);
 
-    await container.read(verificationHistoryViewModelProvider.future);
-    final state = container.read(verificationHistoryViewModelProvider).requireValue;
+      await container.read(verificationHistoryViewModelProvider.future);
+      final state = container
+          .read(verificationHistoryViewModelProvider)
+          .requireValue;
 
-    expect(state.items.single.id, 'run-1');
-    expect(state.serviceFor(state.items.single), isNull);
-    expect(state.processFor(state.items.single), isNull);
-  });
+      expect(state.items.single.id, 'run-1');
+      expect(state.serviceFor(state.items.single), isNull);
+      expect(state.processFor(state.items.single), isNull);
+    },
+  );
 
   test('retry reloads the last failed request', () async {
     final repository = _HistoryRepository(
@@ -154,38 +173,45 @@ void main() {
     final vm = container.read(verificationHistoryViewModelProvider.notifier);
     await vm.retry();
 
-    final state = container.read(verificationHistoryViewModelProvider).requireValue;
+    final state = container
+        .read(verificationHistoryViewModelProvider)
+        .requireValue;
     expect(state.items.single.id, 'run-1');
     expect(repository.runRequests.length, 2);
   });
 
-  test('refresh preserves service lookup data when only the M1 lookup fails', () async {
-    final repository = _HistoryRepository(
-      runsByPage: {
-        0: PagedResult(
-          items: [_run('run-1', 'service-1', 'version-1', 1, 10)],
-          page: const PageInfo(
-            page: 0,
-            size: 20,
-            totalElements: 1,
-            totalPages: 1,
+  test(
+    'refresh preserves service lookup data when only the M1 lookup fails',
+    () async {
+      final repository = _HistoryRepository(
+        runsByPage: {
+          0: PagedResult(
+            items: [_run('run-1', 'service-1', 'version-1', 1, 10)],
+            page: const PageInfo(
+              page: 0,
+              size: 20,
+              totalElements: 1,
+              totalPages: 1,
+            ),
           ),
-        ),
-      },
-      failServiceLookupOnRefresh: true,
-    );
-    final container = _createContainer(repository);
-    addTearDown(container.dispose);
+        },
+        failServiceLookupOnRefresh: true,
+      );
+      final container = _createContainer(repository);
+      addTearDown(container.dispose);
 
-    await container.read(verificationHistoryViewModelProvider.future);
-    final vm = container.read(verificationHistoryViewModelProvider.notifier);
+      await container.read(verificationHistoryViewModelProvider.future);
+      final vm = container.read(verificationHistoryViewModelProvider.notifier);
 
-    await vm.refresh();
+      await vm.refresh();
 
-    final refreshed = container.read(verificationHistoryViewModelProvider).requireValue;
-    expect(refreshed.services, _services);
-    expect(refreshed.items.single.id, 'run-1');
-  });
+      final refreshed = container
+          .read(verificationHistoryViewModelProvider)
+          .requireValue;
+      expect(refreshed.services, _services);
+      expect(refreshed.items.single.id, 'run-1');
+    },
+  );
 
   test('refresh keeps no local fake row and adopts the API response', () async {
     final refreshCompleter = Completer<PagedResult<VerificationRunSummary>>();
@@ -210,7 +236,9 @@ void main() {
     final vm = container.read(verificationHistoryViewModelProvider.notifier);
 
     final refresh = vm.refresh();
-    final refreshing = container.read(verificationHistoryViewModelProvider).requireValue;
+    final refreshing = container
+        .read(verificationHistoryViewModelProvider)
+        .requireValue;
     expect(refreshing.isRefreshing, isTrue);
     expect(refreshing.items.single.id, 'run-1');
 
@@ -227,18 +255,17 @@ void main() {
     );
     await refresh;
 
-    final refreshed = container.read(verificationHistoryViewModelProvider).requireValue;
+    final refreshed = container
+        .read(verificationHistoryViewModelProvider)
+        .requireValue;
     expect(refreshed.isRefreshing, isFalse);
     expect(refreshed.items.map((run) => run.id), ['run-2']);
   });
-
 }
 
 ProviderContainer _createContainer(_HistoryRepository repository) {
   final container = ProviderContainer(
-    overrides: [
-      verificationRepositoryProvider.overrideWithValue(repository),
-    ],
+    overrides: [verificationRepositoryProvider.overrideWithValue(repository)],
   );
   final subscription = container.listen(
     verificationHistoryViewModelProvider,
@@ -329,6 +356,10 @@ class _HistoryRepository implements VerificationRepository {
   final List<_RunRequest> runRequests = [];
 
   @override
+  Future<VerificationRun> getVerification(String runId) async =>
+      throw UnimplementedError();
+
+  @override
   Future<PagedResult<Service>> listServices({
     required int page,
     required int size,
@@ -368,10 +399,12 @@ class _HistoryRepository implements VerificationRepository {
   }
 
   @override
-  Future<List<VerifiableProcess>> verifiableProcesses(String serviceId) async => const [];
+  Future<List<VerifiableProcess>> verifiableProcesses(String serviceId) async =>
+      const [];
 
   @override
-  Future<VerificationPreview> preview(VerificationTarget target) async => throw UnimplementedError();
+  Future<VerificationPreview> preview(VerificationTarget target) async =>
+      throw UnimplementedError();
 
   @override
   Future<TicketPage> searchTickets(
@@ -389,7 +422,11 @@ class _HistoryRepository implements VerificationRepository {
 }
 
 class _RunRequest {
-  const _RunRequest({required this.page, required this.size, required this.serviceId});
+  const _RunRequest({
+    required this.page,
+    required this.size,
+    required this.serviceId,
+  });
 
   final int page;
   final int size;

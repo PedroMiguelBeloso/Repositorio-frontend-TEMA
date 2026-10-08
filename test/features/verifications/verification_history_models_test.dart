@@ -10,12 +10,16 @@ void main() {
     expect(VerificationRunStatus.fromApi('FAILED').label, 'Fallida');
   });
 
-  test('keeps technical progress invariant inside the model', () {
+  test('maps the progress values and accepts an unknown total', () {
     final progress = RunProgress.fromValues(total: 12, processed: 5);
     expect(progress.fractionLabel, '5 de 12');
     expect(progress.fraction, closeTo(5 / 12, 0.0001));
     expect(
-      () => RunProgress.fromValues(total: 4, processed: 5),
+      RunProgress.fromValues(total: 0, processed: 0).fractionLabel,
+      '0 de 0',
+    );
+    expect(
+      () => RunProgress.fromValues(total: -1, processed: 0),
       throwsA(isA<FormatException>()),
     );
   });

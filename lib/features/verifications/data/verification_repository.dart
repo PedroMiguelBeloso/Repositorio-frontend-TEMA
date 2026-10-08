@@ -12,6 +12,7 @@ abstract interface class VerificationRepository {
     required int size,
     String? serviceId,
   });
+  Future<VerificationRun> getVerification(String runId);
   Future<List<VerifiableProcess>> verifiableProcesses(String serviceId);
   Future<VerificationPreview> preview(VerificationTarget target);
   Future<TicketPage> searchTickets(

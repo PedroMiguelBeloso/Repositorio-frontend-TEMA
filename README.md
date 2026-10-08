@@ -141,7 +141,8 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 	diferencia red, 401, 403, 400/422, 409, 5xx y respuestas inesperadas; para
 	Problem Detail prioriza `detail`, luego `title` y finalmente un mensaje
 	seguro. `AsyncContent` ofrece carga, error/reintento y vacío. Los estados de
-	negocio de M2 no están implementados ni tratados como errores HTTP.
+	resultados y revisión humana de M2 aún no están implementados ni se tratan
+	como errores HTTP.
 - **Pruebas:** se verifican rutas, permisos, sesión, layout, Bearer presente y
 	ausente, y mapeo de errores sin backend real.
 - **Verificaciones M2 (selector de tickets):** `/verifications/new` usa el
@@ -153,6 +154,12 @@ el cliente común en `lib/core/network/` y el manejo de errores en
 	obligatoria del grupo. La búsqueda de tickets realiza
 	`GET /services/{serviceId}/tickets` con paginación. El flujo no crea un
 	selector alternativo ni inventa grupos cuando la API no devuelve tickets.
+- **Progreso de ejecución (WBS 7.3.3 · TC-186):** `/verifications/{runId}`
+	consulta `GET /verifications/{runId}` con el `ApiClient` compartido. El
+	backend es la fuente de verdad: Flutter presenta estado y progreso recibidos,
+	no ejecuta controles ni calcula resultados de cumplimiento. La carga inicial
+	muestra un spinner de página; las actualizaciones no reemplazan la pantalla
+	y se indican discretamente como «Actualizando…».
 - **Integraciones (WBS 5.3.5):** `/settings/integrations` consulta
 	`GET /integrations/status` y prueba lectura mediante `POST /integrations/test`
 	con `ApiClient`. Los tests sustituyen `IntegrationsRepository` por un fake de
@@ -178,7 +185,7 @@ de Administrador vuelve a `/`.
 | `/services` | `services` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications` | `verifications` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/verifications/new` | `new-verification` | Redirige a `/login` | Redirige a `/` | Permitida | Funcional |
-| `/verifications/:runId` | `verification-details` | Redirige a `/login` | Permitida | Permitida | Temporal |
+| `/verifications/:runId` | `verification-details` | Redirige a `/login` | Permitida | Permitida | Funcional |
 | `/verifications/:runId/results` | `verification-results` | Redirige a `/login` | Permitida | Permitida | Temporal |
 | `/settings/integrations` | `integrations` | Redirige a `/login` | Redirige a `/` | Permitida | Funcional |
 
@@ -188,6 +195,94 @@ otra, incorporá su path a ese set. El redirect consulta el helper
 `RouteNames.isAdminOnly`. `/verifications/new` está declarada antes de
 `/verifications/:runId`, por lo que el path estático no se captura como un
 detalle.
+
+## Progreso de ejecución (WBS 7.3.3 · TC-186)
+
+La pantalla de detalle reemplaza el placeholder de `/verifications/{runId}`.
+Puede abrirse desde el flujo de inicio cuando `POST /verifications` devuelve
+un `id`, o directamente usando la URL. En ambos casos el `runId` de la ruta es
+la identidad de la consulta; no depende de estado de navegación previo.
+
+### Contrato y capas
+
+La implementación conserva el flujo **vista → ViewModel → repositorio →
+ApiClient**:
+
+| Capa | Archivo(s) | Responsabilidad |
+|---|---|---|
+| Vista | `lib/features/verifications/view/verification_run_page.dart` | Muestra carga, datos, estado, progreso, errores recuperables y acciones. No hace HTTP ni decide resultados. |
+| ViewModel | `lib/features/verifications/viewmodel/verification_run_view_model.dart` | Se asocia al `runId`, carga inicialmente, serializa refrescos, maneja el polling y libera el temporizador. |
+| Contrato de repositorio | `lib/features/verifications/data/verification_repository.dart` | Declara `getVerification(runId)`. |
+| Repositorio HTTP | `lib/features/verifications/data/verification_repository_impl.dart` | Ejecuta `GET /verifications/{runId}`, traduce 404 y mapea errores/respuesta. |
+| DTO y mapeo | `lib/features/verifications/data/dto/verification_history_dtos.dart` | Convierte el JSON `VerificationRun` y `progress` al modelo de UI. |
+| Modelos | `lib/features/verifications/model/verification_history_models.dart` | Define estados, progreso y datos de una ejecución. |
+| Ruta | `lib/app/router/app_router.dart` | Construye `VerificationRunPage` con el parámetro `runId`. |
+
+El `ApiClient` agrega el JWT de la sesión cuando existe; la vista no recibe ni
+manipula el token. El formato de respuesta esperado sigue el esquema
+`VerificationRun` del OpenAPI del proyecto: `id`, `serviceId`,
+`processVersionId`, `scope`, `status`, `progress`, `startedAt` y, cuando
+corresponda, `macroActivityId`, `note`, `finishedAt` y `failureMessage`.
+`progress` contiene `processed`, `total` y `reviewRequired`. Los campos de
+identidad o contexto que el backend devuelva no se convierten en nombres
+legibles por inferencia.
+
+### Estados y ciclo de vida del polling
+
+| Estado recibido | Texto en pantalla | Comportamiento |
+|---|---|---|
+| `QUEUED` | En espera | Consulta periódica activa. |
+| `RUNNING` | En curso | Consulta periódica activa. |
+| `COMPLETED` | Finalizada | Detiene el polling y habilita el acceso a resultados. |
+| `FAILED` | Fallida | Detiene el polling, muestra `failureMessage` si existe y ofrece salir o iniciar una ejecución nueva. |
+
+El ViewModel consulta inmediatamente al cargarse. Mientras el estado sea
+`QUEUED` o `RUNNING`, vuelve a consultar cada tres segundos (valor configurable
+por `verificationRunPollingIntervalProvider`). No inicia una solicitud si la
+anterior sigue pendiente. Al llegar a un estado terminal cancela el timer; el
+provider auto-dispose cancela el mismo al abandonar la ruta. Los estados
+desconocidos se presentan como «Estado no reconocido» y no se consideran
+pollables.
+
+### Progreso y datos visibles
+
+- Siempre se muestra `processed` y `total` como «N de M registros procesados».
+- Si `total > 0`, se muestra barra determinada y porcentaje derivado del
+	progreso recibido. Para `processed=4` y `total=10` se presenta «4 de 10» y
+	«40 %».
+- Si `total = 0`, la barra es indeterminada y se indica «Progreso
+	indeterminado»; no se calcula ni se muestra un porcentaje.
+- `reviewRequired` se presenta como «Requieren revisión: N». No se denomina
+	errores ni incumplimientos y no modifica el estado técnico de la ejecución.
+- La pantalla presenta alcance («Proceso completo» o «Macroactividad» con el
+	ID informado), fecha/hora de inicio, identificador, IDs de servicio y versión
+	del proceso, y nota si existe. Muestra la fecha/hora de finalización solo si
+	el backend devuelve `finishedAt`. Las fechas se presentan en hora local.
+
+### Errores y acciones
+
+- Una falla al cargar por primera vez se muestra como error de página con
+	reintento. Si responde `404`, el mensaje informa que la ejecución no existe o
+	no se encuentra.
+- Una falla al actualizar conserva el último estado conocido, muestra «No se
+	pudo actualizar» y ofrece «Reintentar». Un error HTTP/de red no se representa
+	como el estado funcional `FAILED`.
+- Si el backend devuelve `FAILED`, se informa `failureMessage` cuando viene en
+	la respuesta. Se ofrecen volver a Verificaciones y, para Administrador,
+	iniciar una nueva verificación. No se reenvía la solicitud anterior: cada
+	inicio crea otra ejecución.
+- Si el backend devuelve `COMPLETED`, «Ver resultados» navega a
+	`/verifications/{runId}/results`. Esa ruta sigue siendo placeholder hasta
+	implementar WBS 7.3.4, y la pantalla lo advierte expresamente; el enlace no
+	implica que los resultados ya estén implementados.
+
+### Alcance pendiente de integración
+
+La capa Flutter queda cubierta con respuestas simuladas. El recorrido real
+contra Spring Boot no está verificado mientras no estén disponibles los
+endpoints backend para iniciar y consultar ejecuciones. Esto no cambia el
+alcance del ticket: no se implementan aquí el worker/backend, historial
+7.3.7, resultados 7.3.4, decisiones humanas ni cancelación de ejecuciones.
 
 ## Testing
 
@@ -207,6 +302,10 @@ detalle.
 - `test/features/integrations/`: cubre estados, fuentes, repositorio, carga,
 	reintento, prueba exitosa/fallida, doble envío y layout móvil/escritorio con
 	un repositorio falso.
+- `test/features/verifications/verification_run_test.dart` y
+	`verification_repository_impl_test.dart`: cubren progreso, polling serial y
+	ciclo de vida, estados terminales, errores recuperables, presentación de
+	estados y mapeo de `GET /verifications/{runId}`.
 - `test/core/widgets/integration_status_widgets_test.dart`: cubre `StatusChip`,
 	`IntegrationStatusCard` y el botón de reintento de `AppErrorView`.
 
@@ -217,9 +316,6 @@ a la red.
 
 ## Verificación
 
-Evidencia final recolectada el 2026-10-02 con Flutter 3.47.5 stable y Dart
-3.13.4.
-
 `flutter pub get`:
 
 ```text
@@ -227,18 +323,21 @@ Got dependencies!
 5 packages have newer versions incompatible with dependency constraints.
 ```
 
-`flutter analyze`:
+`flutter analyze` (validación TC-186):
 
 ```text
-Analyzing proyecto_tema_frontend...
-No issues found! (ran in 4.1s)
+Analyzing Repositorio-frontend-TEMA...
+No issues found!
 ```
 
-`flutter test`:
+`flutter test` (suite completa, validación TC-186):
 
 ```text
-00:18 +110: All tests passed!
+00:47 +167: All tests passed!
 ```
+
+Las pruebas usan repositorios/adaptadores simulados y no acreditan que el
+backend responda a los endpoints de inicio y consulta.
 
 `flutter run -d chrome`:
 

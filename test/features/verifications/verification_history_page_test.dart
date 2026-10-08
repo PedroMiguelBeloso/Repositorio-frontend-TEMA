@@ -12,7 +12,9 @@ import 'package:proyecto_tema_frontend/features/verifications/model/verification
 import 'package:proyecto_tema_frontend/features/verifications/view/verification_history_page.dart';
 
 void main() {
-  testWidgets('shows API counts, four translated statuses and pagination', (tester) async {
+  testWidgets('shows API counts, four translated statuses and pagination', (
+    tester,
+  ) async {
     final repository = _HistoryRepository(
       page0: PagedResult(
         items: [
@@ -55,8 +57,9 @@ void main() {
     expect(find.text('Servicio Alfa'), findsAtLeastNWidgets(1));
     expect(find.text('Start Up · versión 3.2'), findsAtLeastNWidgets(1));
 
-    final nextPageButton =
-        find.byKey(const ValueKey('verification-history-next-page'));
+    final nextPageButton = find.byKey(
+      const ValueKey('verification-history-next-page'),
+    );
     await _scrollHistoryToVisible(tester, nextPageButton);
     expect(tester.widget<IconButton>(nextPageButton).onPressed, isNotNull);
     await tester.tap(nextPageButton);
@@ -68,7 +71,9 @@ void main() {
     expect(router.routeInformationProvider.value.uri.path, '/verifications');
   });
 
-  testWidgets('administrator sees new verification action on empty history', (tester) async {
+  testWidgets('administrator sees new verification action on empty history', (
+    tester,
+  ) async {
     final repository = _HistoryRepository(page0: _emptyPage);
     await _pumpHistoryPage(
       tester,
@@ -83,7 +88,9 @@ void main() {
     );
   });
 
-  testWidgets('reader does not see new verification action on empty history', (tester) async {
+  testWidgets('reader does not see new verification action on empty history', (
+    tester,
+  ) async {
     final repository = _HistoryRepository(page0: _emptyPage);
     await _pumpHistoryPage(
       tester,
@@ -98,71 +105,77 @@ void main() {
     );
   });
 
-  testWidgets('selecting and clearing service filter sends serviceId and resets page', (tester) async {
-    final repository = _HistoryRepository(
-      page0: PagedResult(
-        items: [_run('run-all', VerificationRunStatus.running, 1, 2)],
-        page: const PageInfo(
-          page: 0,
-          size: 20,
-          totalElements: 21,
-          totalPages: 2,
+  testWidgets(
+    'selecting and clearing service filter sends serviceId and resets page',
+    (tester) async {
+      final repository = _HistoryRepository(
+        page0: PagedResult(
+          items: [_run('run-all', VerificationRunStatus.running, 1, 2)],
+          page: const PageInfo(
+            page: 0,
+            size: 20,
+            totalElements: 21,
+            totalPages: 2,
+          ),
         ),
-      ),
-      page1: PagedResult(
-        items: [_run('run-page-2', VerificationRunStatus.running, 2, 2)],
-        page: const PageInfo(
-          page: 1,
-          size: 20,
-          totalElements: 21,
-          totalPages: 2,
+        page1: PagedResult(
+          items: [_run('run-page-2', VerificationRunStatus.running, 2, 2)],
+          page: const PageInfo(
+            page: 1,
+            size: 20,
+            totalElements: 21,
+            totalPages: 2,
+          ),
         ),
-      ),
-      filteredPage0: PagedResult(
-        items: [_run('run-filtered', VerificationRunStatus.completed, 2, 2)],
-        page: const PageInfo(
-          page: 0,
-          size: 20,
-          totalElements: 1,
-          totalPages: 1,
+        filteredPage0: PagedResult(
+          items: [_run('run-filtered', VerificationRunStatus.completed, 2, 2)],
+          page: const PageInfo(
+            page: 0,
+            size: 20,
+            totalElements: 1,
+            totalPages: 1,
+          ),
         ),
-      ),
-    );
-    await _pumpHistoryPage(
-      tester,
-      repository,
-      const Session(role: UserRole.administrator),
-    );
+      );
+      await _pumpHistoryPage(
+        tester,
+        repository,
+        const Session(role: UserRole.administrator),
+      );
 
-    final nextPageButton =
-        find.byKey(const ValueKey('verification-history-next-page'));
-    await _scrollHistoryToVisible(tester, nextPageButton);
-    expect(tester.widget<IconButton>(nextPageButton).onPressed, isNotNull);
-    await tester.tap(nextPageButton);
-    await tester.pumpAndSettle();
+      final nextPageButton = find.byKey(
+        const ValueKey('verification-history-next-page'),
+      );
+      await _scrollHistoryToVisible(tester, nextPageButton);
+      expect(tester.widget<IconButton>(nextPageButton).onPressed, isNotNull);
+      await tester.tap(nextPageButton);
+      await tester.pumpAndSettle();
 
-    expect(repository.lastRunPage, 1);
+      expect(repository.lastRunPage, 1);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Servicio Beta').last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Servicio Beta').last);
+      await tester.pumpAndSettle();
 
-    expect(repository.lastRunPage, 0);
-    expect(repository.lastRunServiceId, 'service-2');
-    expect(find.text('run-filtered'), findsOneWidget);
+      expect(repository.lastRunPage, 0);
+      expect(repository.lastRunServiceId, 'service-2');
+      expect(find.text('run-filtered'), findsOneWidget);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Todos los servicios').last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Todos los servicios').last);
+      await tester.pumpAndSettle();
 
-    expect(repository.lastRunPage, 0);
-    expect(repository.lastRunServiceId, isNull);
-    expect(find.text('run-all'), findsOneWidget);
-  });
+      expect(repository.lastRunPage, 0);
+      expect(repository.lastRunServiceId, isNull);
+      expect(find.text('run-all'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a run opens its own runId and preserves API order', (tester) async {
+  testWidgets('a run opens its own runId and preserves API order', (
+    tester,
+  ) async {
     final repository = _HistoryRepository(
       page0: PagedResult(
         items: [
@@ -187,8 +200,9 @@ void main() {
     final secondIndex = tester.getTopLeft(find.text('second-run')).dy;
     expect(firstIndex, lessThan(secondIndex));
 
-    final secondRunCard =
-        find.byKey(const ValueKey('verification-run-second-run'));
+    final secondRunCard = find.byKey(
+      const ValueKey('verification-run-second-run'),
+    );
     await _scrollHistoryToVisible(tester, secondRunCard);
     await tester.tap(secondRunCard);
     await tester.pumpAndSettle();
@@ -197,7 +211,9 @@ void main() {
     expect(router.state.uri.path, '/verifications/second-run');
   });
 
-  testWidgets('loading, error and retry use shared async feedback', (tester) async {
+  testWidgets('loading, error and retry use shared async feedback', (
+    tester,
+  ) async {
     final repository = _HistoryRepository(
       page0: PagedResult(
         items: [_run('run-1', VerificationRunStatus.running, 1, 3)],
@@ -216,7 +232,10 @@ void main() {
       const Session(role: UserRole.reader),
     );
 
-    expect(find.text('No se pudo cargar el historial de verificaciones.'), findsOneWidget);
+    expect(
+      find.text('No se pudo cargar el historial de verificaciones.'),
+      findsOneWidget,
+    );
     expect(find.text('Reintentar'), findsOneWidget);
 
     await tester.tap(find.text('Reintentar'));
@@ -263,12 +282,7 @@ void main() {
 
 final _emptyPage = PagedResult<VerificationRunSummary>(
   items: const [],
-  page: const PageInfo(
-    page: 0,
-    size: 20,
-    totalElements: 0,
-    totalPages: 0,
-  ),
+  page: const PageInfo(page: 0, size: 20, totalElements: 0, totalPages: 0),
 );
 
 VerificationRunSummary _run(
@@ -287,7 +301,6 @@ VerificationRunSummary _run(
     startedAt: DateTime.utc(2026, 10, 7, 10, 15),
   );
 }
-
 
 Future<void> _scrollHistoryToVisible(WidgetTester tester, Finder target) async {
   final historyList = find.byType(ListView).first;
@@ -310,12 +323,14 @@ Future<void> _scrollHistoryToVisible(WidgetTester tester, Finder target) async {
   expect(
     targetRect.top,
     greaterThanOrEqualTo(viewportRect.top),
-    reason: 'El elemento objetivo debe quedar visible dentro del ListView del historial.',
+    reason:
+        'El elemento objetivo debe quedar visible dentro del ListView del historial.',
   );
   expect(
     targetRect.bottom,
     lessThanOrEqualTo(viewportRect.bottom),
-    reason: 'El elemento objetivo debe quedar visible dentro del ListView del historial.',
+    reason:
+        'El elemento objetivo debe quedar visible dentro del ListView del historial.',
   );
 }
 
@@ -376,9 +391,8 @@ Future<GoRouter> _pumpHistoryPage(
       ),
       GoRoute(
         path: '/verifications/:runId',
-        builder: (context, state) => Text(
-          'runId: ${state.pathParameters['runId']}',
-        ),
+        builder: (context, state) =>
+            Text('runId: ${state.pathParameters['runId']}'),
       ),
       GoRoute(
         path: '/verifications/new',
@@ -426,18 +440,22 @@ class _HistoryRepository implements VerificationRepository {
   String? lastRunServiceId;
 
   @override
+  Future<VerificationRun> getVerification(String runId) async =>
+      throw UnimplementedError();
+
+  @override
   Future<PagedResult<Service>> listServices({
     required int page,
     required int size,
   }) async => PagedResult(
-        items: page == 0 ? _services : const [],
-        page: PageInfo(
-          page: page,
-          size: size,
-          totalElements: _services.length,
-          totalPages: 1,
-        ),
-      );
+    items: page == 0 ? _services : const [],
+    page: PageInfo(
+      page: page,
+      size: size,
+      totalElements: _services.length,
+      totalPages: 1,
+    ),
+  );
 
   @override
   Future<PagedResult<VerificationRunSummary>> listRuns({
@@ -457,10 +475,12 @@ class _HistoryRepository implements VerificationRepository {
   }
 
   @override
-  Future<List<VerifiableProcess>> verifiableProcesses(String serviceId) async => const [];
+  Future<List<VerifiableProcess>> verifiableProcesses(String serviceId) async =>
+      const [];
 
   @override
-  Future<VerificationPreview> preview(VerificationTarget target) async => throw UnimplementedError();
+  Future<VerificationPreview> preview(VerificationTarget target) async =>
+      throw UnimplementedError();
 
   @override
   Future<TicketPage> searchTickets(

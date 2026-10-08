@@ -25,6 +25,7 @@ import '../../features/services/view/service_form_page.dart';
 import '../../features/services/view/service_list_page.dart';
 import '../../features/verifications/view/new_verification_page.dart';
 import '../../features/verifications/view/verification_history_page.dart';
+import '../../features/verifications/view/verification_run_page.dart';
 import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -144,9 +145,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         ),
                         FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(context)
-                                .colorScheme
-                                .error,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
                           ),
                           onPressed: () => Navigator.of(context).pop(true),
                           child: const Text('Salir sin guardar'),
@@ -193,7 +194,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.verificationDetailsName,
             path: RouteNames.verificationDetailsPath,
             builder: (context, state) =>
-                const PlaceholderPage(title: 'Detalle de verificación'),
+                VerificationRunPage(runId: state.pathParameters['runId']!),
           ),
           GoRoute(
             name: RouteNames.verificationResultsName,

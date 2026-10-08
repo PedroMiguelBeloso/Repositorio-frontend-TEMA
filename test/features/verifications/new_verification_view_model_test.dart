@@ -145,6 +145,10 @@ class _FakeRepository implements VerificationRepository {
   final List<String> ticketQueries = [];
 
   @override
+  Future<VerificationRun> getVerification(String runId) async =>
+      throw UnimplementedError();
+
+  @override
   Future<PagedResult<Service>> listServices({
     required int page,
     required int size,

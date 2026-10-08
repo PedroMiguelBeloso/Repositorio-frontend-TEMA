@@ -9,10 +9,12 @@ class VerificationRunDto {
     required this.processVersionId,
     required this.scope,
     required this.status,
-    required this.total,
-    required this.processed,
+    required this.progress,
     required this.startedAt,
     this.macroActivityId,
+    this.note,
+    this.finishedAt,
+    this.failureMessage,
   });
 
   final String id;
@@ -20,22 +22,47 @@ class VerificationRunDto {
   final String processVersionId;
   final String scope;
   final String status;
-  final int total;
-  final int processed;
+  final RunProgress progress;
   final DateTime startedAt;
   final String? macroActivityId;
+  final String? note;
+  final DateTime? finishedAt;
+  final String? failureMessage;
 
   factory VerificationRunDto.fromJson(Map<String, dynamic> json) {
+    final rawProgress = _asMap(json['progress']);
     return VerificationRunDto(
       id: _requiredString(json, 'id'),
       serviceId: _requiredString(json, 'serviceId'),
       processVersionId: _requiredString(json, 'processVersionId'),
       scope: _requiredString(json, 'scope'),
       status: _requiredString(json, 'status'),
-      total: _int(_asMap(json['progress'])['total']),
-      processed: _int(_asMap(json['progress'])['processed']),
+      progress: RunProgress.fromValues(
+        total: _int(rawProgress['total']),
+        processed: _int(rawProgress['processed']),
+        reviewRequired: _int(rawProgress['reviewRequired']),
+      ),
       startedAt: DateTime.parse(_requiredString(json, 'startedAt')),
       macroActivityId: json['macroActivityId'] as String?,
+      note: _optionalString(json, 'note'),
+      finishedAt: _optionalDateTime(json, 'finishedAt'),
+      failureMessage: _optionalString(json, 'failureMessage'),
+    );
+  }
+
+  VerificationRun toRun() {
+    return VerificationRun(
+      id: id,
+      serviceId: serviceId,
+      processVersionId: processVersionId,
+      scope: VerificationScope.fromApi(scope),
+      status: VerificationRunStatus.fromApi(status),
+      progress: progress,
+      startedAt: startedAt,
+      macroActivityId: macroActivityId,
+      note: note,
+      finishedAt: finishedAt,
+      failureMessage: failureMessage,
     );
   }
 
@@ -46,7 +73,7 @@ class VerificationRunDto {
       processVersionId: processVersionId,
       scope: VerificationScope.fromApi(scope),
       status: VerificationRunStatus.fromApi(status),
-      progress: RunProgress.fromValues(total: total, processed: processed),
+      progress: progress,
       startedAt: startedAt,
       macroActivityId: macroActivityId,
     );
@@ -122,6 +149,18 @@ String _requiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is String && value.trim().isNotEmpty) return value;
   throw FormatException('Falta el campo requerido $key.');
+}
+
+String? _optionalString(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value == null) return null;
+  if (value is String) return value;
+  throw FormatException('El campo $key debe ser texto.');
+}
+
+DateTime? _optionalDateTime(Map<String, dynamic> json, String key) {
+  final value = _optionalString(json, key);
+  return value == null ? null : DateTime.parse(value);
 }
 
 Map<String, dynamic> _asMap(Object? value) {

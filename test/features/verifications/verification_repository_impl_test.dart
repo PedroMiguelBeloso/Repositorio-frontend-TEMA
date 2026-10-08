@@ -8,6 +8,7 @@ import 'package:proyecto_tema_frontend/features/services/data/service_repository
 import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository_impl.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/verification_history_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/new_verification_models.dart';
+import 'package:proyecto_tema_frontend/core/errors/app_failure.dart';
 
 void main() {
   test(
@@ -41,10 +42,7 @@ void main() {
       expect(result.items.single.progress.fractionLabel, '6 de 10');
 
       await repository.listRuns(page: 0, size: 20);
-      expect(adapter.historyQueryParameters, {
-        'page': 0,
-        'size': 20,
-      });
+      expect(adapter.historyQueryParameters, {'page': 0, 'size': 20});
     },
   );
 
@@ -87,12 +85,57 @@ void main() {
       ]);
     },
   );
+
+  test('loads and maps a run from its detail endpoint', () async {
+    final adapter = _VerificationAdapter();
+    final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+      ..httpClientAdapter = adapter;
+    final repository = VerificationRepositoryImpl(
+      ApiClient(dio),
+      ServiceRepositoryImpl(ApiClient(dio)),
+    );
+
+    final run = await repository.getVerification('run-detail');
+
+    expect(adapter.detailPath, '/api/v1/verifications/run-detail');
+    expect(run.id, 'run-detail');
+    expect(run.status, VerificationRunStatus.running);
+    expect(run.scope, VerificationScope.macroActivity);
+    expect(run.progress.processed, 4);
+    expect(run.progress.total, 10);
+    expect(run.progress.reviewRequired, 1);
+    expect(run.note, 'Revisión inicial');
+    expect(run.finishedAt, isNull);
+  });
+
+  test('maps a missing run to an explicit not-found message', () async {
+    final adapter = _VerificationAdapter()..runNotFound = true;
+    final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+      ..httpClientAdapter = adapter;
+    final repository = VerificationRepositoryImpl(
+      ApiClient(dio),
+      ServiceRepositoryImpl(ApiClient(dio)),
+    );
+
+    await expectLater(
+      repository.getVerification('missing'),
+      throwsA(
+        isA<UnexpectedFailure>().having(
+          (failure) => failure.message,
+          'message',
+          contains('no existe o no se encuentra'),
+        ),
+      ),
+    );
+  });
 }
 
 class _VerificationAdapter implements HttpClientAdapter {
   Map<String, dynamic>? previewBody;
   Map<String, dynamic>? startBody;
   Map<String, dynamic>? historyQueryParameters;
+  String? detailPath;
+  bool runNotFound = false;
 
   @override
   Future<ResponseBody> fetch(
@@ -123,6 +166,27 @@ class _VerificationAdapter implements HttpClientAdapter {
         ],
       }, 200);
     }
+    if (path.contains('/verifications/') &&
+        !path.endsWith('/verifications/preview')) {
+      detailPath = path;
+      if (runNotFound) return _response({'title': 'Not found'}, 404);
+      return _response({
+        'id': 'run-detail',
+        'serviceId': 'service-detail',
+        'serviceTypeSnapshot': 'SUPPORT_ERP',
+        'serviceRevisionSnapshot': 2,
+        'processVersionId': 'version-detail',
+        'sourceSnapshot': {},
+        'scope': 'MACRO_ACTIVITY',
+        'macroActivityId': 'macro-detail',
+        'note': 'Revisión inicial',
+        'status': 'RUNNING',
+        'progress': {'total': 10, 'processed': 4, 'reviewRequired': 1},
+        'startedBy': 'user-1',
+        'startedAt': '2026-10-07T10:15:00Z',
+        'ticketSelections': [],
+      }, 200);
+    }
     if (path.endsWith('/verifications') && options.method == 'GET') {
       historyQueryParameters = Map<String, dynamic>.from(
         options.queryParameters,
@@ -138,22 +202,13 @@ class _VerificationAdapter implements HttpClientAdapter {
             'sourceSnapshot': {},
             'scope': 'PROCESS',
             'status': 'RUNNING',
-            'progress': {
-              'total': 10,
-              'processed': 6,
-              'reviewRequired': 0,
-            },
+            'progress': {'total': 10, 'processed': 6, 'reviewRequired': 0},
             'startedBy': 'user-1',
             'startedAt': '2026-10-07T10:15:00Z',
             'ticketSelections': [],
           },
         ],
-        'page': {
-          'page': 1,
-          'size': 20,
-          'totalElements': 21,
-          'totalPages': 2,
-        },
+        'page': {'page': 1, 'size': 20, 'totalElements': 21, 'totalPages': 2},
       }, 200);
     }
     if (path.endsWith('/verifications') && options.method == 'POST') {

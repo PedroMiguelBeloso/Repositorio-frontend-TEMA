@@ -14,6 +14,10 @@ import 'package:proyecto_tema_frontend/features/processes/viewmodel/process_list
 import 'package:proyecto_tema_frontend/features/services/model/service_models.dart'
     hide ProcessStatus;
 import 'package:proyecto_tema_frontend/features/services/viewmodel/service_list_view_model.dart';
+import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository.dart';
+import 'package:proyecto_tema_frontend/features/verifications/data/verification_repository_impl.dart';
+import 'package:proyecto_tema_frontend/features/verifications/model/new_verification_models.dart';
+import 'package:proyecto_tema_frontend/features/verifications/model/verification_history_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/new_verification_view_model.dart';
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/verification_history_view_model.dart';
 import 'package:proyecto_tema_frontend/features/users/data/dto/user_dtos.dart';
@@ -37,7 +41,7 @@ void main() {
       ('/processes/process-42/history', 'Historial de versiones', false),
       (RouteNames.verificationsPath, 'Verificaciones', false),
       (RouteNames.newVerificationPath, 'Nueva verificación', false),
-      ('/verifications/run-42', 'Detalle de verificación', true),
+      ('/verifications/run-42', 'Progreso de verificación', false),
       ('/verifications/run-42/results', 'Resultados de verificación', true),
       (RouteNames.integrationsPath, 'Integraciones', false),
     ];
@@ -248,7 +252,7 @@ void main() {
     );
     final router = container.read(appRouterProvider);
     const routes = <(String, String)>[
-      ('/verifications/run-42', 'Detalle de verificación'),
+      ('/verifications/run-42', 'Progreso de verificación'),
       ('/verifications/run-42/results', 'Resultados de verificación'),
     ];
 
@@ -512,6 +516,9 @@ Future<ProviderContainer> _pumpApp(
         verificationHistoryViewModelProvider.overrideWith(
           _TestVerificationHistoryViewModel.new,
         ),
+        verificationRepositoryProvider.overrideWithValue(
+          _TestVerificationRepository(),
+        ),
         processStructureRepositoryProvider.overrideWithValue(
           _TestProcessRepository(),
         ),
@@ -543,6 +550,55 @@ class _TestVerificationHistoryViewModel extends VerificationHistoryViewModel {
     ),
     services: const [],
   );
+}
+
+class _TestVerificationRepository implements VerificationRepository {
+  @override
+  Future<VerificationRun> getVerification(String runId) async =>
+      VerificationRun(
+        id: runId,
+        serviceId: 'service-42',
+        processVersionId: 'version-42',
+        scope: VerificationScope.process,
+        status: VerificationRunStatus.completed,
+        progress: RunProgress.fromValues(total: 1, processed: 1),
+        startedAt: DateTime.utc(2026, 10, 7, 10),
+      );
+
+  @override
+  Future<PagedResult<Service>> listServices({
+    required int page,
+    required int size,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PagedResult<VerificationRunSummary>> listRuns({
+    required int page,
+    required int size,
+    String? serviceId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<List<VerifiableProcess>> verifiableProcesses(String serviceId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<VerificationPreview> preview(VerificationTarget target) =>
+      throw UnimplementedError();
+
+  @override
+  Future<TicketPage> searchTickets(
+    String serviceId, {
+    required String query,
+    required int page,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<String> start(
+    VerificationPreview preview,
+    String? note,
+    Map<String, Set<String>> selections,
+  ) => throw UnimplementedError();
 }
 
 class _TestProcessListViewModel extends ProcessListViewModel {
