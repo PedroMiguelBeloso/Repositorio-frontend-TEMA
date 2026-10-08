@@ -19,6 +19,161 @@ import 'package:proyecto_tema_frontend/features/verifications/viewmodel/verifica
 
 void main() {
   test(
+    'admin corrects one ticket and preserves the other ticket result',
+    () async {
+      final repository = _ResultsRepository(
+        run: _run(VerificationRunStatus.completed),
+        pages: {
+          0: _page(0, ['result-1', 'result-2'], totalPages: 1),
+        },
+      );
+      final container = _createContainer(repository, 'run-1', admin: true);
+      addTearDown(container.dispose);
+      await container.read(
+        verificationResultsViewModelProvider('run-1').future,
+      );
+      final viewModel = container.read(
+        verificationResultsViewModelProvider('run-1').notifier,
+      );
+      viewModel.toggleResult('result-1');
+
+      final updated = await viewModel.decideResult(
+        resultId: 'result-1',
+        finalStatus: VerificationResultStatus.doesNotComply,
+        rationale: '  Falta validación del cliente.  ',
+      );
+      final state = container
+          .read(verificationResultsViewModelProvider('run-1'))
+          .requireValue;
+      expect(repository.statusDecisionResultIds, ['result-1']);
+      expect(repository.statusDecisionRevision, 0);
+      expect(
+        repository.statusDecisionRationale,
+        'Falta validación del cliente.',
+      );
+      expect(updated.proposedStatus, VerificationResultStatus.complies);
+      expect(
+        state.items.first.effectiveStatus,
+        VerificationResultStatus.doesNotComply,
+      );
+      expect(
+        state.items.last.effectiveStatus,
+        VerificationResultStatus.complies,
+      );
+      expect(state.selectedResultId, 'result-1');
+      expect(
+        state.items.first.humanDecisions.single.decisionType,
+        HumanDecisionType.resultStatus,
+      );
+    },
+  );
+
+  test(
+    'reader, pending applicability and invalid No aplica are rejected',
+    () async {
+      final repository = _ResultsRepository(
+        run: _run(VerificationRunStatus.completed),
+        pages: {
+          0: _page(0, ['result-1'], totalPages: 1),
+        },
+      );
+      final reader = _createContainer(repository, 'run-1');
+      addTearDown(reader.dispose);
+      await reader.read(verificationResultsViewModelProvider('run-1').future);
+      await expectLater(
+        reader
+            .read(verificationResultsViewModelProvider('run-1').notifier)
+            .decideResult(
+              resultId: 'result-1',
+              finalStatus: VerificationResultStatus.complies,
+              rationale: 'Confirmado.',
+            ),
+        throwsA(isA<PermissionFailure>()),
+      );
+
+      final admin = _createContainer(repository, 'run-1', admin: true);
+      addTearDown(admin.dispose);
+      await admin.read(verificationResultsViewModelProvider('run-1').future);
+      await expectLater(
+        admin
+            .read(verificationResultsViewModelProvider('run-1').notifier)
+            .decideResult(
+              resultId: 'result-1',
+              finalStatus: VerificationResultStatus.notApplicable,
+              rationale: 'No aplica.',
+            ),
+        throwsA(isA<ValidationFailure>()),
+      );
+      expect(repository.statusDecisionResultIds, isEmpty);
+
+      final pendingRepository = _ResultsRepository(
+        run: _run(VerificationRunStatus.completed),
+        pages: {
+          0: PagedResult(
+            items: [_pendingResult('result-1')],
+            page: const PageInfo(
+              page: 0,
+              size: 20,
+              totalElements: 1,
+              totalPages: 1,
+            ),
+          ),
+        },
+      );
+      final pending = _createContainer(
+        pendingRepository,
+        'run-1',
+        admin: true,
+        resolver: _CaseDependentResolver(),
+      );
+      addTearDown(pending.dispose);
+      await pending.read(verificationResultsViewModelProvider('run-1').future);
+      await expectLater(
+        pending
+            .read(verificationResultsViewModelProvider('run-1').notifier)
+            .decideResult(
+              resultId: 'result-1',
+              finalStatus: VerificationResultStatus.complies,
+              rationale: 'Confirmado.',
+            ),
+        throwsA(isA<ValidationFailure>()),
+      );
+      expect(pendingRepository.statusDecisionResultIds, isEmpty);
+    },
+  );
+
+  test('status decision conflict refreshes without resubmitting', () async {
+    final repository = _ResultsRepository(
+      run: _run(VerificationRunStatus.completed),
+      pages: {
+        0: _page(0, ['result-1'], totalPages: 1),
+      },
+      rejectStatusDecisionAsConflict: true,
+    );
+    final container = _createContainer(repository, 'run-1', admin: true);
+    addTearDown(container.dispose);
+    await container.read(verificationResultsViewModelProvider('run-1').future);
+    await expectLater(
+      container
+          .read(verificationResultsViewModelProvider('run-1').notifier)
+          .decideResult(
+            resultId: 'result-1',
+            finalStatus: VerificationResultStatus.doesNotComply,
+            rationale: 'Falta evidencia.',
+          ),
+      throwsA(isA<ConflictFailure>()),
+    );
+    expect(repository.statusDecisionResultIds, ['result-1']);
+    expect(repository.calls.where((call) => call == 'GET run').length, 2);
+    expect(
+      container
+          .read(verificationResultsViewModelProvider('run-1'))
+          .requireValue
+          .isDecidingResult,
+      isFalse,
+    );
+  });
+  test(
     'admin resolves one ticket without replacing another ticket result',
     () async {
       final repository = _ResultsRepository(
@@ -500,6 +655,51 @@ class _AdminSessionNotifier extends SessionNotifier {
 
 class _ResultsRepository implements VerificationRepository {
   @override
+  Future<VerificationResult> decideResult({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required VerificationResultStatus finalStatus,
+    required String rationale,
+  }) async {
+    statusDecisionResultIds.add(resultId);
+    statusDecisionRevision = revision;
+    statusDecisionRationale = rationale;
+    if (rejectStatusDecisionAsConflict) {
+      throw const ConflictFailure('La revisión cambió.');
+    }
+    final original = pages[0]!.items.firstWhere((item) => item.id == resultId);
+    return VerificationResult(
+      id: original.id,
+      runId: original.runId,
+      expectationId: original.expectationId,
+      macroActivityId: original.macroActivityId,
+      activityId: original.activityId,
+      displayName: original.displayName,
+      evidenceType: original.evidenceType,
+      location: original.location,
+      subjectTicketId: original.subjectTicketId,
+      applicability: original.applicability,
+      proposedStatus: original.proposedStatus,
+      effectiveStatus: finalStatus,
+      rationale: rationale,
+      limitations: original.limitations,
+      evidence: original.evidence,
+      humanDecisions: [
+        ...original.humanDecisions,
+        HumanDecisionEvent(
+          id: 'status-decision-1',
+          decisionType: HumanDecisionType.resultStatus,
+          finalStatus: finalStatus,
+          rationale: rationale,
+          decidedAt: DateTime.utc(2026, 10, 8),
+        ),
+      ],
+      revision: revision + 1,
+    );
+  }
+
+  @override
   Future<VerificationResult> resolveApplicability({
     required String runId,
     required String resultId,
@@ -553,16 +753,21 @@ class _ResultsRepository implements VerificationRepository {
     this.pages = const {},
     this.failNextResultsRequest = false,
     this.rejectApplicabilityAsConflict = false,
+    this.rejectStatusDecisionAsConflict = false,
   });
 
   final VerificationRun run;
   final Map<int, PagedResult<VerificationResult>> pages;
   bool failNextResultsRequest;
   bool rejectApplicabilityAsConflict;
+  bool rejectStatusDecisionAsConflict;
   final List<String> calls = [];
   final List<String> resolvedResultIds = [];
   int? resolvedRevision;
   String? resolvedRationale;
+  final List<String> statusDecisionResultIds = [];
+  int? statusDecisionRevision;
+  String? statusDecisionRationale;
 
   @override
   Future<VerificationRun> getVerification(String runId) async {

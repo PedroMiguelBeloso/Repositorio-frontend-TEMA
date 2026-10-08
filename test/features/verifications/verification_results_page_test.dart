@@ -17,6 +17,72 @@ import 'package:proyecto_tema_frontend/features/verifications/model/verification
 import 'package:proyecto_tema_frontend/features/verifications/view/verification_results_page.dart';
 
 void main() {
+  testWidgets('admin corrects a ticket result with a required rationale', (
+    tester,
+  ) async {
+    final repository = _PageRepository(
+      run: _run(VerificationRunStatus.completed),
+      page: PagedResult(
+        items: [_result('r1', 'Ticket actualizado', subjectTicketId: '204')],
+        page: const PageInfo(
+          page: 0,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+        ),
+      ),
+    );
+    await _pump(tester, repository, const Size(900, 1000), admin: true);
+    await tester.tap(find.text('Ticket actualizado'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Confirmar o corregir resultado'));
+    await tester.tap(find.text('Confirmar o corregir resultado'));
+    await tester.pumpAndSettle();
+    expect(find.text('Propuesta automática: Cumple'), findsOneWidget);
+    expect(find.text('Estado actual: Cumple'), findsOneWidget);
+    expect(find.text('No aplica'), findsNothing);
+    await tester.tap(find.text('Registrar decisión'));
+    await tester.pumpAndSettle();
+    expect(find.text('Escribí el fundamento de la decisión.'), findsOneWidget);
+    await tester.tap(find.text('No cumple'));
+    await tester.enterText(
+      find.byType(TextFormField),
+      'El ticket no muestra la validación solicitada.',
+    );
+    await tester.tap(find.text('Registrar decisión'));
+    await tester.pumpAndSettle();
+    expect(repository.statusDecisionCalled, isTrue);
+    expect(repository.statusDecisionRevision, 1);
+    expect(
+      repository.statusDecisionFinalStatus,
+      VerificationResultStatus.doesNotComply,
+    );
+    expect(
+      find.text('Decisión registrada. Estado actual: No cumple.'),
+      findsOneWidget,
+    );
+    expect(find.text('Decisiones humanas previas'), findsOneWidget);
+  });
+
+  testWidgets('reader cannot open human status review', (tester) async {
+    final repository = _PageRepository(
+      run: _run(VerificationRunStatus.completed),
+      page: PagedResult(
+        items: [_result('r1', 'Ticket actualizado', subjectTicketId: '204')],
+        page: const PageInfo(
+          page: 0,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+        ),
+      ),
+    );
+    await _pump(tester, repository, const Size(390, 800));
+    await tester.tap(find.text('Ticket actualizado'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirmar o corregir resultado'), findsNothing);
+  });
+
   testWidgets(
     'admin can resolve pending applicability and sees the updated status',
     (tester) async {
@@ -456,6 +522,48 @@ class _AdminSessionNotifier extends SessionNotifier {
 
 class _PageRepository implements VerificationRepository {
   @override
+  Future<VerificationResult> decideResult({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required VerificationResultStatus finalStatus,
+    required String rationale,
+  }) async {
+    statusDecisionCalled = true;
+    statusDecisionRevision = revision;
+    statusDecisionFinalStatus = finalStatus;
+    final original = page.items.firstWhere((item) => item.id == resultId);
+    return VerificationResult(
+      id: original.id,
+      runId: original.runId,
+      expectationId: original.expectationId,
+      macroActivityId: original.macroActivityId,
+      activityId: original.activityId,
+      displayName: original.displayName,
+      evidenceType: original.evidenceType,
+      location: original.location,
+      subjectTicketId: original.subjectTicketId,
+      applicability: original.applicability,
+      proposedStatus: original.proposedStatus,
+      effectiveStatus: finalStatus,
+      rationale: rationale,
+      limitations: original.limitations,
+      evidence: original.evidence,
+      humanDecisions: [
+        ...original.humanDecisions,
+        HumanDecisionEvent(
+          id: 'status-decision-new',
+          decisionType: HumanDecisionType.resultStatus,
+          finalStatus: finalStatus,
+          rationale: rationale,
+          decidedAt: DateTime.utc(2026, 10, 8),
+        ),
+      ],
+      revision: revision + 1,
+    );
+  }
+
+  @override
   Future<VerificationResult> resolveApplicability({
     required String runId,
     required String resultId,
@@ -515,6 +623,9 @@ class _PageRepository implements VerificationRepository {
   bool resolveCalled = false;
   int? resolvedRevision;
   HumanApplicabilityDecision? resolvedDecision;
+  bool statusDecisionCalled = false;
+  int? statusDecisionRevision;
+  VerificationResultStatus? statusDecisionFinalStatus;
 
   @override
   Future<VerificationRun> getVerification(String runId) async => run;

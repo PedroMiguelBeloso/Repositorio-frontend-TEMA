@@ -304,6 +304,15 @@ VerificationRun _run(
 
 class _RunRepository implements VerificationRepository {
   @override
+  Future<VerificationResult> decideResult({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required VerificationResultStatus finalStatus,
+    required String rationale,
+  }) => throw UnimplementedError();
+
+  @override
   Future<VerificationResult> resolveApplicability({
     required String runId,
     required String resultId,

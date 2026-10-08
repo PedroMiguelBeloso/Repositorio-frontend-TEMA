@@ -24,6 +24,7 @@ class VerificationResultsState {
     this.selectedResultId,
     this.isChangingPage = false,
     this.isResolvingApplicability = false,
+    this.isDecidingResult = false,
     this.resultsFailure,
     this.locationContext = const {},
   });
@@ -34,6 +35,7 @@ class VerificationResultsState {
   final String? selectedResultId;
   final bool isChangingPage;
   final bool isResolvingApplicability;
+  final bool isDecidingResult;
   final AppFailure? resultsFailure;
   final Map<String, VerificationResultLocationContext> locationContext;
 
@@ -55,6 +57,7 @@ class VerificationResultsState {
     Object? selectedResultId = _unchanged,
     bool? isChangingPage,
     bool? isResolvingApplicability,
+    bool? isDecidingResult,
     Object? resultsFailure = _unchanged,
     Object? locationContext = _unchanged,
   }) {
@@ -70,6 +73,7 @@ class VerificationResultsState {
       isChangingPage: isChangingPage ?? this.isChangingPage,
       isResolvingApplicability:
           isResolvingApplicability ?? this.isResolvingApplicability,
+      isDecidingResult: isDecidingResult ?? this.isDecidingResult,
       resultsFailure: identical(resultsFailure, _unchanged)
           ? this.resultsFailure
           : resultsFailure as AppFailure?,
@@ -92,6 +96,7 @@ class VerificationResultsViewModel
   int _requestedPage = 0;
   bool _requestInProgress = false;
   bool _applicabilityRequestInProgress = false;
+  bool _statusDecisionRequestInProgress = false;
 
   VerificationRepository get _repository =>
       ref.read(verificationRepositoryProvider);
@@ -165,7 +170,7 @@ class VerificationResultsViewModel
         'Solo un Administrador puede resolver la aplicabilidad.',
       );
     }
-    if (_applicabilityRequestInProgress) {
+    if (_applicabilityRequestInProgress || _statusDecisionRequestInProgress) {
       throw const ConflictFailure('Ya se está guardando una decisión.');
     }
     if (current == null ||
@@ -241,6 +246,98 @@ class VerificationResultsViewModel
     }
   }
 
+  Future<VerificationResult> decideResult({
+    required String resultId,
+    required VerificationResultStatus finalStatus,
+    required String rationale,
+  }) async {
+    if (ref.read(sessionProvider)?.isAdmin != true) {
+      throw const PermissionFailure(
+        'Solo un Administrador puede confirmar o corregir resultados.',
+      );
+    }
+    if (_statusDecisionRequestInProgress || _applicabilityRequestInProgress) {
+      throw const ConflictFailure('Ya se está guardando una decisión.');
+    }
+    final current = state.value;
+    if (current == null ||
+        current.run.status != VerificationRunStatus.completed ||
+        current.isChangingPage) {
+      throw const ConflictFailure(
+        'La ejecución todavía no permite revisar este resultado.',
+      );
+    }
+    VerificationResult? result;
+    for (final item in current.items) {
+      if (item.id == resultId) {
+        result = item;
+        break;
+      }
+    }
+    if (result == null || result.runId != runId) {
+      throw const ConflictFailure(
+        'El resultado ya no está disponible en esta página.',
+      );
+    }
+    final choices = allowedHumanFinalStatuses(
+      result,
+      current.locationContext[resultId]?.applicabilityMode,
+    );
+    if (!choices.contains(finalStatus)) {
+      throw const ValidationFailure(
+        'El estado elegido no corresponde a la aplicabilidad de este resultado.',
+      );
+    }
+    final normalizedRationale = rationale.trim();
+    if (normalizedRationale.isEmpty) {
+      throw const ValidationFailure('Escribí el fundamento de la decisión.');
+    }
+
+    _statusDecisionRequestInProgress = true;
+    state = AsyncData(current.copyWith(isDecidingResult: true));
+    try {
+      final updated = await _repository.decideResult(
+        runId: runId,
+        resultId: result.id,
+        revision: result.revision,
+        finalStatus: finalStatus,
+        rationale: normalizedRationale,
+      );
+      if (updated.id != result.id || updated.runId != runId) {
+        throw const UnexpectedFailure(
+          'El servidor devolvió un resultado distinto al solicitado.',
+        );
+      }
+      if (ref.mounted) {
+        final latest = state.value;
+        if (latest != null && latest.items.any((item) => item.id == resultId)) {
+          state = AsyncData(
+            latest.copyWith(
+              items: [
+                for (final item in latest.items)
+                  if (item.id == resultId) updated else item,
+              ],
+              isDecidingResult: false,
+            ),
+          );
+        }
+      }
+      return updated;
+    } on ConflictFailure {
+      // A stale revision must be reviewed again before a new decision.
+      await retry();
+      rethrow;
+    } finally {
+      _statusDecisionRequestInProgress = false;
+      if (ref.mounted) {
+        final latest = state.value;
+        if (latest != null && latest.isDecidingResult) {
+          state = AsyncData(latest.copyWith(isDecidingResult: false));
+        }
+      }
+    }
+  }
+
   Future<void> goToPage(int page) async {
     final current = state.value;
     final pageInfo = current?.page;
@@ -248,6 +345,7 @@ class VerificationResultsViewModel
         pageInfo == null ||
         current.isChangingPage ||
         _applicabilityRequestInProgress ||
+        _statusDecisionRequestInProgress ||
         page < 0 ||
         page >= pageInfo.totalPages ||
         page == pageInfo.page) {

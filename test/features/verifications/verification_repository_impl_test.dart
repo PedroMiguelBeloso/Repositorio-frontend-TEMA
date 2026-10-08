@@ -248,6 +248,65 @@ void main() {
       throwsA(isA<ConflictFailure>()),
     );
   });
+
+  test(
+    'puts a status decision with revision and maps the human event',
+    () async {
+      final adapter = _VerificationAdapter();
+      final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+        ..httpClientAdapter = adapter;
+      final repository = VerificationRepositoryImpl(
+        ApiClient(dio),
+        ServiceRepositoryImpl(ApiClient(dio)),
+      );
+
+      final updated = await repository.decideResult(
+        runId: 'run-results',
+        resultId: 'result-204',
+        revision: 2,
+        finalStatus: VerificationResultStatus.doesNotComply,
+        rationale: '  Falta evidencia válida.  ',
+      );
+
+      expect(adapter.decisionMethod, 'PUT');
+      expect(
+        adapter.decisionPath,
+        '/api/v1/verifications/run-results/results/result-204/decision',
+      );
+      expect(adapter.decisionBody, {
+        'revision': 2,
+        'finalStatus': 'DOES_NOT_COMPLY',
+        'rationale': 'Falta evidencia válida.',
+      });
+      expect(updated.proposedStatus, VerificationResultStatus.complies);
+      expect(updated.effectiveStatus, VerificationResultStatus.doesNotComply);
+      expect(
+        updated.humanDecisions.single.decisionType,
+        HumanDecisionType.resultStatus,
+      );
+      expect(updated.revision, 3);
+    },
+  );
+
+  test('a stale human status decision maps to conflict', () async {
+    final adapter = _VerificationAdapter()..decisionConflict = true;
+    final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+      ..httpClientAdapter = adapter;
+    final repository = VerificationRepositoryImpl(
+      ApiClient(dio),
+      ServiceRepositoryImpl(ApiClient(dio)),
+    );
+    await expectLater(
+      repository.decideResult(
+        runId: 'run-results',
+        resultId: 'result-204',
+        revision: 1,
+        finalStatus: VerificationResultStatus.complies,
+        rationale: 'Confirmado.',
+      ),
+      throwsA(isA<ConflictFailure>()),
+    );
+  });
 }
 
 class _VerificationAdapter implements HttpClientAdapter {
@@ -261,6 +320,10 @@ class _VerificationAdapter implements HttpClientAdapter {
   String? applicabilityPath;
   Map<String, dynamic>? applicabilityBody;
   bool applicabilityConflict = false;
+  String? decisionPath;
+  String? decisionMethod;
+  Map<String, dynamic>? decisionBody;
+  bool decisionConflict = false;
 
   @override
   Future<ResponseBody> fetch(
@@ -383,6 +446,46 @@ class _VerificationAdapter implements HttpClientAdapter {
           },
         ],
         'revision': 2,
+      }, 200);
+    }
+    if (path.endsWith('/decision') && options.method == 'PUT') {
+      decisionPath = path;
+      decisionMethod = options.method;
+      decisionBody = Map<String, dynamic>.from(options.data as Map);
+      if (decisionConflict) {
+        return _response({'status': 409, 'detail': 'La revisión cambió.'}, 409);
+      }
+      return _response({
+        'id': 'result-204',
+        'runId': 'run-results',
+        'expectationId': 'expectation-ticket-update',
+        'macroActivityId': 'macro-1',
+        'activityId': 'activity-3',
+        'displayName': 'Ticket actualizado',
+        'evidenceType': 'TICKET',
+        'location': 'ACTIVITY_RECORD',
+        'subjectTicketId': '204',
+        'applicability': {
+          'decision': 'APPLIES',
+          'origin': 'DETERMINISTIC',
+          'rationale': 'La evidencia aplica.',
+          'limitations': [],
+        },
+        'proposedStatus': 'COMPLIES',
+        'effectiveStatus': 'DOES_NOT_COMPLY',
+        'rationale': 'Falta evidencia válida.',
+        'limitations': [],
+        'evidence': [],
+        'humanDecisions': [
+          {
+            'id': 'decision-status-1',
+            'decisionType': 'RESULT_STATUS',
+            'finalStatus': 'DOES_NOT_COMPLY',
+            'rationale': 'Falta evidencia válida.',
+            'decidedAt': '2026-10-08T15:00:00Z',
+          },
+        ],
+        'revision': 3,
       }, 200);
     }
     if (path.contains('/verifications/') &&

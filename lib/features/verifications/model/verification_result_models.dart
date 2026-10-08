@@ -1,4 +1,5 @@
 import '../../processes/model/process_models.dart';
+import '../../processes/model/evidence_expectation.dart' as evidence_model;
 
 /// Result status returned by the M2 results contract.
 enum VerificationResultStatus {
@@ -323,11 +324,15 @@ class VerificationResult {
       runId: runId.trim(),
       expectationId: expectationId.trim(),
       macroActivityId: macroActivityId.trim(),
-      activityId: activityId?.trim().isEmpty == true ? null : activityId?.trim(),
+      activityId: activityId?.trim().isEmpty == true
+          ? null
+          : activityId?.trim(),
       displayName: displayName.trim(),
       evidenceType: evidenceType,
       location: location,
-      subjectTicketId: normalizedTicket?.isEmpty == true ? null : normalizedTicket,
+      subjectTicketId: normalizedTicket?.isEmpty == true
+          ? null
+          : normalizedTicket,
       applicability: applicability,
       proposedStatus: proposedStatus,
       effectiveStatus: effectiveStatus,
@@ -360,4 +365,27 @@ class VerificationResult {
   bool get hasHumanStatusDecision => proposedStatus != effectiveStatus;
 
   bool get isTicketScoped => subjectTicketId != null;
+}
+
+/// Status choices that can be sent to the human decision endpoint.
+/// The backend remains authoritative and checks these rules again.
+List<VerificationResultStatus> allowedHumanFinalStatuses(
+  VerificationResult result,
+  evidence_model.ApplicabilityMode? mode,
+) {
+  switch (result.applicability.decision) {
+    case ApplicabilityDecision.applies:
+      return const [
+        VerificationResultStatus.complies,
+        VerificationResultStatus.doesNotComply,
+        VerificationResultStatus.reviewRequired,
+      ];
+    case ApplicabilityDecision.notApplicable:
+      return mode == evidence_model.ApplicabilityMode.caseDependent
+          ? const [VerificationResultStatus.notApplicable]
+          : const [];
+    case ApplicabilityDecision.undetermined:
+    case ApplicabilityDecision.unknown:
+      return const [];
+  }
 }

@@ -26,6 +26,13 @@ abstract interface class VerificationRepository {
     required HumanApplicabilityDecision decision,
     required String rationale,
   });
+  Future<VerificationResult> decideResult({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required VerificationResultStatus finalStatus,
+    required String rationale,
+  });
   Future<List<VerifiableProcess>> verifiableProcesses(String serviceId);
   Future<VerificationPreview> preview(VerificationTarget target);
   Future<TicketPage> searchTickets(

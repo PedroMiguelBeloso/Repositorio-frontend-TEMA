@@ -115,6 +115,35 @@ class VerificationRepositoryImpl implements VerificationRepository {
   }
 
   @override
+  Future<VerificationResult> decideResult({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required VerificationResultStatus finalStatus,
+    required String rationale,
+  }) async {
+    try {
+      final response = await _api.put(
+        '/verifications/$runId/results/$resultId/decision',
+        data: {
+          'revision': revision,
+          'finalStatus': finalStatus.apiValue,
+          'rationale': rationale.trim(),
+        },
+      );
+      return VerificationResultDto.fromJson(_map(response.data)).toModel();
+    } on DioException catch (error) {
+      throw _mapper.map(error);
+    } on AppFailure {
+      rethrow;
+    } catch (_) {
+      throw const UnexpectedFailure(
+        'La respuesta de la decisión humana no tiene un formato válido.',
+      );
+    }
+  }
+
+  @override
   Future<VerificationRun> getVerification(String runId) async {
     try {
       final response = await _api.get('/verifications/$runId');
