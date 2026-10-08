@@ -87,37 +87,61 @@ void main() {
     },
   );
 
-  test('loads paginated results and maps applicability, references and ticket scope', () async {
-    final adapter = _VerificationAdapter();
-    final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
-      ..httpClientAdapter = adapter;
-    final repository = VerificationRepositoryImpl(
-      ApiClient(dio),
-      ServiceRepositoryImpl(ApiClient(dio)),
-    );
+  test(
+    'loads paginated results and maps applicability, references and ticket scope',
+    () async {
+      final adapter = _VerificationAdapter();
+      final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+        ..httpClientAdapter = adapter;
+      final repository = VerificationRepositoryImpl(
+        ApiClient(dio),
+        ServiceRepositoryImpl(ApiClient(dio)),
+      );
 
-    final results = await repository.listResults(
-      runId: 'run-results',
-      page: 1,
-      size: 20,
-    );
+      final results = await repository.listResults(
+        runId: 'run-results',
+        page: 1,
+        size: 20,
+      );
 
-    expect(adapter.resultsPath, '/api/v1/verifications/run-results/results');
-    expect(adapter.resultsQueryParameters, {'page': 1, 'size': 20});
-    expect(results.page.page, 1);
-    expect(results.page.totalElements, 21);
-    expect(results.page.totalPages, 2);
-    expect(results.items.single.displayName, 'Ticket actualizado');
-    expect(results.items.single.subjectTicketId, '204');
-    expect(results.items.single.effectiveStatus, VerificationResultStatus.reviewRequired);
-    expect(results.items.single.proposedStatus, VerificationResultStatus.complies);
-    expect(results.items.single.applicability.decision, ApplicabilityDecision.undetermined);
-    expect(results.items.single.applicability.origin, DecisionOrigin.aiApplicability);
-    expect(results.items.single.evidence.single.source, EvidenceSource.redmine);
-    expect(results.items.single.evidence.single.ticketId, '204');
-    expect(results.items.single.evidence.single.webUrl, 'https://redmine.example/tickets/204');
-    expect(results.items.single.humanDecisions.single.decisionType, HumanDecisionType.resultStatus);
-  });
+      expect(adapter.resultsPath, '/api/v1/verifications/run-results/results');
+      expect(adapter.resultsQueryParameters, {'page': 1, 'size': 20});
+      expect(results.page.page, 1);
+      expect(results.page.totalElements, 21);
+      expect(results.page.totalPages, 2);
+      expect(results.items.single.displayName, 'Ticket actualizado');
+      expect(results.items.single.subjectTicketId, '204');
+      expect(
+        results.items.single.effectiveStatus,
+        VerificationResultStatus.reviewRequired,
+      );
+      expect(
+        results.items.single.proposedStatus,
+        VerificationResultStatus.complies,
+      );
+      expect(
+        results.items.single.applicability.decision,
+        ApplicabilityDecision.undetermined,
+      );
+      expect(
+        results.items.single.applicability.origin,
+        DecisionOrigin.aiApplicability,
+      );
+      expect(
+        results.items.single.evidence.single.source,
+        EvidenceSource.redmine,
+      );
+      expect(results.items.single.evidence.single.ticketId, '204');
+      expect(
+        results.items.single.evidence.single.webUrl,
+        'https://redmine.example/tickets/204',
+      );
+      expect(
+        results.items.single.humanDecisions.single.decisionType,
+        HumanDecisionType.resultStatus,
+      );
+    },
+  );
 
   test('loads and maps a run from its detail endpoint', () async {
     final adapter = _VerificationAdapter();
@@ -161,6 +185,69 @@ void main() {
       ),
     );
   });
+
+  test(
+    'posts applicability decision with the current revision and maps the updated result',
+    () async {
+      final adapter = _VerificationAdapter();
+      final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+        ..httpClientAdapter = adapter;
+      final repository = VerificationRepositoryImpl(
+        ApiClient(dio),
+        ServiceRepositoryImpl(ApiClient(dio)),
+      );
+
+      final updated = await repository.resolveApplicability(
+        runId: 'run-results',
+        resultId: 'result-204',
+        revision: 1,
+        decision: HumanApplicabilityDecision.notApplicable,
+        rationale: '  No hubo desarrollo.  ',
+      );
+
+      expect(
+        adapter.applicabilityPath,
+        '/api/v1/verifications/run-results/results/result-204/applicability',
+      );
+      expect(adapter.applicabilityBody, {
+        'revision': 1,
+        'decision': 'NOT_APPLICABLE',
+        'rationale': 'No hubo desarrollo.',
+      });
+      expect(
+        updated.applicability.decision,
+        ApplicabilityDecision.notApplicable,
+      );
+      expect(updated.effectiveStatus, VerificationResultStatus.notApplicable);
+      expect(updated.proposedStatus, VerificationResultStatus.reviewRequired);
+      expect(updated.revision, 2);
+      expect(
+        updated.humanDecisions.single.decisionType,
+        HumanDecisionType.applicability,
+      );
+    },
+  );
+
+  test('maps a stale applicability revision to a conflict', () async {
+    final adapter = _VerificationAdapter()..applicabilityConflict = true;
+    final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+      ..httpClientAdapter = adapter;
+    final repository = VerificationRepositoryImpl(
+      ApiClient(dio),
+      ServiceRepositoryImpl(ApiClient(dio)),
+    );
+
+    await expectLater(
+      repository.resolveApplicability(
+        runId: 'run-results',
+        resultId: 'result-204',
+        revision: 1,
+        decision: HumanApplicabilityDecision.applies,
+        rationale: 'Aplica al ticket.',
+      ),
+      throwsA(isA<ConflictFailure>()),
+    );
+  });
 }
 
 class _VerificationAdapter implements HttpClientAdapter {
@@ -171,6 +258,9 @@ class _VerificationAdapter implements HttpClientAdapter {
   String? resultsPath;
   Map<String, dynamic>? resultsQueryParameters;
   bool runNotFound = false;
+  String? applicabilityPath;
+  Map<String, dynamic>? applicabilityBody;
+  bool applicabilityConflict = false;
 
   @override
   Future<ResponseBody> fetch(
@@ -203,7 +293,9 @@ class _VerificationAdapter implements HttpClientAdapter {
     }
     if (path.endsWith('/results') && options.method == 'GET') {
       resultsPath = path;
-      resultsQueryParameters = Map<String, dynamic>.from(options.queryParameters);
+      resultsQueryParameters = Map<String, dynamic>.from(
+        options.queryParameters,
+      );
       return _response({
         'items': [
           {
@@ -219,12 +311,14 @@ class _VerificationAdapter implements HttpClientAdapter {
             'applicability': {
               'decision': 'UNDETERMINED',
               'origin': 'AI_APPLICABILITY',
-              'rationale': 'No hay información suficiente para resolver la aplicabilidad.',
+              'rationale':
+                  'No hay información suficiente para resolver la aplicabilidad.',
               'limitations': ['Falta contexto del caso.'],
             },
             'proposedStatus': 'COMPLIES',
             'effectiveStatus': 'REVIEW_REQUIRED',
-            'rationale': 'La fuente está disponible pero requiere intervención.',
+            'rationale':
+                'La fuente está disponible pero requiere intervención.',
             'limitations': ['La consulta de Redmine fue parcial.'],
             'evidence': [
               {
@@ -250,6 +344,45 @@ class _VerificationAdapter implements HttpClientAdapter {
           },
         ],
         'page': {'page': 1, 'size': 20, 'totalElements': 21, 'totalPages': 2},
+      }, 200);
+    }
+    if (path.endsWith('/applicability') && options.method == 'POST') {
+      applicabilityPath = path;
+      applicabilityBody = Map<String, dynamic>.from(options.data as Map);
+      if (applicabilityConflict) {
+        return _response({'status': 409, 'detail': 'La revisión cambió.'}, 409);
+      }
+      return _response({
+        'id': 'result-204',
+        'runId': 'run-results',
+        'expectationId': 'expectation-ticket-update',
+        'macroActivityId': 'macro-1',
+        'activityId': 'activity-3',
+        'displayName': 'Orden de transporte',
+        'evidenceType': 'DOCUMENT',
+        'location': 'ACTIVITY_RECORD',
+        'subjectTicketId': '204',
+        'applicability': {
+          'decision': 'NOT_APPLICABLE',
+          'origin': 'HUMAN',
+          'rationale': 'No hubo desarrollo.',
+          'limitations': [],
+        },
+        'proposedStatus': 'REVIEW_REQUIRED',
+        'effectiveStatus': 'NOT_APPLICABLE',
+        'rationale': 'El Administrador determinó que no aplica.',
+        'limitations': [],
+        'evidence': [],
+        'humanDecisions': [
+          {
+            'id': 'decision-2',
+            'decisionType': 'APPLICABILITY',
+            'applicabilityDecision': 'NOT_APPLICABLE',
+            'rationale': 'No hubo desarrollo.',
+            'decidedAt': '2026-10-08T14:00:00Z',
+          },
+        ],
+        'revision': 2,
       }, 200);
     }
     if (path.contains('/verifications/') &&

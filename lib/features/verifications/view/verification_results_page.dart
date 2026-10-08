@@ -6,11 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/route_names.dart';
 import '../../../app/theme/app_theme.dart';
+import '../../../core/auth/session_provider.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/widgets/app_error_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../processes/model/process_models.dart';
+import '../../processes/model/evidence_expectation.dart' as evidence_model;
 import '../../services/model/service_models.dart';
 import '../data/verification_result_location_resolver.dart';
 import '../model/verification_history_models.dart';
@@ -46,9 +48,11 @@ class VerificationResultsPage extends ConsumerWidget {
         ),
         data: (data) => _ResultsContent(
           state: data,
+          isAdmin: ref.watch(sessionProvider)?.isAdmin == true,
           onRetry: viewModel.retry,
           onPageChanged: viewModel.goToPage,
           onToggleResult: viewModel.toggleResult,
+          onResolveApplicability: viewModel.resolveApplicability,
         ),
       ),
     );
@@ -58,15 +62,24 @@ class VerificationResultsPage extends ConsumerWidget {
 class _ResultsContent extends StatelessWidget {
   const _ResultsContent({
     required this.state,
+    required this.isAdmin,
     required this.onRetry,
     required this.onPageChanged,
     required this.onToggleResult,
+    required this.onResolveApplicability,
   });
 
   final VerificationResultsState state;
+  final bool isAdmin;
   final VoidCallback onRetry;
   final ValueChanged<int> onPageChanged;
   final ValueChanged<String> onToggleResult;
+  final Future<VerificationResult> Function({
+    required String resultId,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  })
+  onResolveApplicability;
 
   @override
   Widget build(BuildContext context) {
@@ -102,24 +115,24 @@ class _ResultsContent extends StatelessWidget {
       case VerificationRunStatus.running:
         return _ExecutionPendingContent(
           run: state.run,
-          onBack: () => context.go(
-            RouteNames.verificationDetails(state.run.id),
-          ),
+          onBack: () =>
+              context.go(RouteNames.verificationDetails(state.run.id)),
         );
       case VerificationRunStatus.failed:
         return _ExecutionFailedContent(
           run: state.run,
           onRetry: onRetry,
-          onBack: () => context.go(
-            RouteNames.verificationDetails(state.run.id),
-          ),
+          onBack: () =>
+              context.go(RouteNames.verificationDetails(state.run.id)),
         );
       case VerificationRunStatus.completed:
         return _CompletedResultsContent(
           state: state,
+          isAdmin: isAdmin,
           onRetry: onRetry,
           onPageChanged: onPageChanged,
           onToggleResult: onToggleResult,
+          onResolveApplicability: onResolveApplicability,
         );
       case VerificationRunStatus.unknown:
         return _UnknownExecutionState(onRetry: onRetry);
@@ -128,10 +141,7 @@ class _ResultsContent extends StatelessWidget {
 }
 
 class _ResultsHeader extends StatelessWidget {
-  const _ResultsHeader({
-    required this.state,
-    required this.onRetry,
-  });
+  const _ResultsHeader({required this.state, required this.onRetry});
 
   final VerificationResultsState state;
   final VoidCallback onRetry;
@@ -146,7 +156,9 @@ class _ResultsHeader extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) {
             final actions = OutlinedButton.icon(
-              onPressed: state.isChangingPage ? null : onRetry,
+              onPressed: state.isChangingPage || state.isResolvingApplicability
+                  ? null
+                  : onRetry,
               icon: const Icon(Icons.refresh),
               label: const Text('Actualizar'),
             );
@@ -227,15 +239,24 @@ class _ResultsHeader extends StatelessWidget {
 class _CompletedResultsContent extends StatelessWidget {
   const _CompletedResultsContent({
     required this.state,
+    required this.isAdmin,
     required this.onRetry,
     required this.onPageChanged,
     required this.onToggleResult,
+    required this.onResolveApplicability,
   });
 
   final VerificationResultsState state;
+  final bool isAdmin;
   final VoidCallback onRetry;
   final ValueChanged<int> onPageChanged;
   final ValueChanged<String> onToggleResult;
+  final Future<VerificationResult> Function({
+    required String resultId,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  })
+  onResolveApplicability;
 
   @override
   Widget build(BuildContext context) {
@@ -266,6 +287,9 @@ class _CompletedResultsContent extends StatelessWidget {
             VerificationResultTile(
               result: result,
               locationContext: state.locationContext[result.id],
+              isAdmin: isAdmin,
+              isResolvingApplicability: state.isResolvingApplicability,
+              onResolveApplicability: onResolveApplicability,
               isExpanded: result.id == state.selectedResultId,
               onToggle: () => onToggleResult(result.id),
             ),
@@ -275,7 +299,7 @@ class _CompletedResultsContent extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             _ResultsPagination(
               page: page,
-              disabled: state.isChangingPage,
+              disabled: state.isChangingPage || state.isResolvingApplicability,
               onPageChanged: onPageChanged,
             ),
           ],
@@ -304,10 +328,7 @@ class _TraceabilityNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          Icon(Icons.info_outline, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
@@ -326,12 +347,23 @@ class VerificationResultTile extends StatelessWidget {
     super.key,
     required this.result,
     required this.locationContext,
+    this.isAdmin = false,
+    this.isResolvingApplicability = false,
+    this.onResolveApplicability,
     required this.isExpanded,
     required this.onToggle,
   });
 
   final VerificationResult result;
   final VerificationResultLocationContext? locationContext;
+  final bool isAdmin;
+  final bool isResolvingApplicability;
+  final Future<VerificationResult> Function({
+    required String resultId,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  })?
+  onResolveApplicability;
   final bool isExpanded;
   final VoidCallback onToggle;
 
@@ -375,6 +407,13 @@ class VerificationResultTile extends StatelessWidget {
                                 _MetaBadge(
                                   icon: Icons.confirmation_num_outlined,
                                   label: 'Ticket ${result.subjectTicketId}',
+                                ),
+                              if (result
+                                  .applicability
+                                  .requiresHumanIntervention)
+                                _MetaBadge(
+                                  icon: Icons.rule_outlined,
+                                  label: 'Aplicabilidad pendiente',
                                 ),
                             ],
                           ),
@@ -420,7 +459,9 @@ class VerificationResultTile extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          isExpanded ? 'Ocultar fundamento' : 'Ver fundamento y referencias',
+                          isExpanded
+                              ? 'Ocultar fundamento'
+                              : 'Ver fundamento y referencias',
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: theme.colorScheme.primary,
                           ),
@@ -450,7 +491,13 @@ class VerificationResultTile extends StatelessWidget {
                       AppSpacing.lg,
                       AppSpacing.lg,
                     ),
-                    child: _ResultDetails(result: result),
+                    child: _ResultDetails(
+                      result: result,
+                      locationContext: locationContext,
+                      isAdmin: isAdmin,
+                      isResolvingApplicability: isResolvingApplicability,
+                      onResolveApplicability: onResolveApplicability,
+                    ),
                   )
                 : const SizedBox.shrink(),
           ),
@@ -461,9 +508,24 @@ class VerificationResultTile extends StatelessWidget {
 }
 
 class _ResultDetails extends StatelessWidget {
-  const _ResultDetails({required this.result});
+  const _ResultDetails({
+    required this.result,
+    required this.locationContext,
+    required this.isAdmin,
+    required this.isResolvingApplicability,
+    required this.onResolveApplicability,
+  });
 
   final VerificationResult result;
+  final VerificationResultLocationContext? locationContext;
+  final bool isAdmin;
+  final bool isResolvingApplicability;
+  final Future<VerificationResult> Function({
+    required String resultId,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  })?
+  onResolveApplicability;
 
   @override
   Widget build(BuildContext context) {
@@ -479,10 +541,7 @@ class _ResultDetails extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
         ],
-        _DetailSection(
-          title: 'Fundamento',
-          child: Text(result.rationale),
-        ),
+        _DetailSection(title: 'Fundamento', child: Text(result.rationale)),
         if (result.limitations.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.lg),
           _DetailSection(
@@ -506,7 +565,17 @@ class _ResultDetails extends StatelessWidget {
         ],
         if (result.applicability.hasContextualAssessment) ...[
           const SizedBox(height: AppSpacing.lg),
-          _ApplicabilitySection(assessment: result.applicability),
+          _ApplicabilitySection(
+            assessment: result.applicability,
+            canResolve:
+                isAdmin &&
+                locationContext?.applicabilityMode ==
+                    evidence_model.ApplicabilityMode.caseDependent &&
+                onResolveApplicability != null,
+            isAdmin: isAdmin,
+            isResolving: isResolvingApplicability,
+            onResolve: () => _openApplicabilityDialog(context),
+          ),
         ],
         const SizedBox(height: AppSpacing.lg),
         _DetailSection(
@@ -527,6 +596,23 @@ class _ResultDetails extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         _EvidenceReferencesSection(references: result.evidence),
       ],
+    );
+  }
+
+  Future<void> _openApplicabilityDialog(BuildContext context) async {
+    final resolve = onResolveApplicability;
+    if (resolve == null) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ApplicabilityDecisionDialog(
+        result: result,
+        onSubmit: ({required decision, required rationale}) => resolve(
+          resultId: result.id,
+          decision: decision,
+          rationale: rationale,
+        ),
+      ),
     );
   }
 }
@@ -570,9 +656,19 @@ class _HumanOverrideNotice extends StatelessWidget {
 }
 
 class _ApplicabilitySection extends StatelessWidget {
-  const _ApplicabilitySection({required this.assessment});
+  const _ApplicabilitySection({
+    required this.assessment,
+    required this.canResolve,
+    required this.isAdmin,
+    required this.isResolving,
+    required this.onResolve,
+  });
 
   final ApplicabilityAssessment assessment;
+  final bool canResolve;
+  final bool isAdmin;
+  final bool isResolving;
+  final VoidCallback onResolve;
 
   @override
   Widget build(BuildContext context) {
@@ -630,14 +726,204 @@ class _ApplicabilitySection extends StatelessWidget {
             if (isUndetermined) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'La aplicabilidad quedó indeterminada y requiere intervención de un Administrador. Esta pantalla solo permite consultar la decisión pendiente; su resolución pertenece a 7.3.5.',
+                'La aplicabilidad quedó indeterminada y requiere intervención de un Administrador.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (canResolve) ...[
+                const SizedBox(height: AppSpacing.md),
+                FilledButton.icon(
+                  onPressed: isResolving ? null : onResolve,
+                  icon: const Icon(Icons.rule_outlined),
+                  label: const Text('Resolver aplicabilidad'),
+                ),
+              ] else if (isAdmin) ...[
+                const SizedBox(height: AppSpacing.sm),
+                const Text(
+                  'No se pudo confirmar «Depende del caso» en la versión del proceso. Actualizá los resultados o consultá la configuración antes de decidir.',
+                ),
+              ],
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ApplicabilityDecisionDialog extends StatefulWidget {
+  const _ApplicabilityDecisionDialog({
+    required this.result,
+    required this.onSubmit,
+  });
+
+  final VerificationResult result;
+  final Future<VerificationResult> Function({
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  })
+  onSubmit;
+
+  @override
+  State<_ApplicabilityDecisionDialog> createState() =>
+      _ApplicabilityDecisionDialogState();
+}
+
+class _ApplicabilityDecisionDialogState
+    extends State<_ApplicabilityDecisionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _rationaleController = TextEditingController();
+  HumanApplicabilityDecision? _decision;
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _rationaleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+    if (_decision == null) {
+      setState(() => _error = 'Elegí si esta evidencia aplica.');
+      return;
+    }
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _error = null;
+      _submitting = true;
+    });
+    try {
+      final updated = await widget.onSubmit(
+        decision: _decision!,
+        rationale: _rationaleController.text.trim(),
+      );
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Aplicabilidad guardada. Estado actual: ${updated.effectiveStatus.label}.',
+          ),
+        ),
+      );
+    } on ConflictFailure {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El resultado cambió. Revisá la versión actual antes de decidir nuevamente.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _error = safeAppFailure(
+          error,
+          fallbackMessage: 'No se pudo guardar la decisión.',
+        ).message,
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ticket = widget.result.subjectTicketId;
+    return PopScope(
+      canPop: !_submitting,
+      child: AlertDialog(
+        title: const Text('Resolver aplicabilidad'),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(widget.result.displayName),
+                  if (ticket != null) Text('Ticket $ticket'),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text(
+                    'Decidí si esta evidencia corresponde al caso verificado. La decisión y su fundamento quedarán registrados.',
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  RadioGroup<HumanApplicabilityDecision>(
+                    groupValue: _decision,
+                    onChanged: _submitting
+                        ? (_) {}
+                        : (value) => setState(() {
+                            _decision = value;
+                            _error = null;
+                          }),
+                    child: Column(
+                      children: [
+                        for (final option in HumanApplicabilityDecision.values)
+                          RadioListTile<HumanApplicabilityDecision>(
+                            title: Text(option.label),
+                            value: option,
+                            enabled: !_submitting,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextFormField(
+                    controller: _rationaleController,
+                    enabled: !_submitting,
+                    maxLines: 4,
+                    minLines: 3,
+                    maxLength: 2000,
+                    decoration: const InputDecoration(
+                      labelText: 'Fundamento',
+                      hintText:
+                          'Explicá por qué aplica o no aplica en este caso',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Escribí el fundamento de la decisión.'
+                        : null,
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: _submitting ? null : _submit,
+            child: _submitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Guardar decisión'),
+          ),
+        ],
       ),
     );
   }
@@ -673,15 +959,20 @@ class _HumanDecisionsSection extends StatelessWidget {
                         ),
                         Text(
                           _formatDate(event.decidedAt),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     if (event.applicabilityDecision != null)
-                      Text('Aplicabilidad: ${event.applicabilityDecision!.label}'),
+                      Text(
+                        'Aplicabilidad: ${event.applicabilityDecision!.label}',
+                      ),
                     if (event.finalStatus != null)
                       Text('Estado: ${event.finalStatus!.label}'),
                     const SizedBox(height: AppSpacing.xs),
@@ -793,9 +1084,7 @@ class _EvidenceReferenceCard extends StatelessWidget {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo abrir la referencia web.'),
-        ),
+        const SnackBar(content: Text('No se pudo abrir la referencia web.')),
       );
     }
   }
@@ -832,11 +1121,14 @@ class _LocationBadge extends StatelessWidget {
     final (icon, label) = switch (location) {
       EvidenceLocation.input => (Icons.input_outlined, 'Entrada'),
       EvidenceLocation.activityRecord => (
-          Icons.fact_check_outlined,
-          'Registro de actividad'
-        ),
+        Icons.fact_check_outlined,
+        'Registro de actividad',
+      ),
       EvidenceLocation.output => (Icons.output_outlined, 'Salida'),
-      EvidenceLocation.unknown => (Icons.help_outline, 'Ubicación no reconocida'),
+      EvidenceLocation.unknown => (
+        Icons.help_outline,
+        'Ubicación no reconocida',
+      ),
     };
 
     return Container(
@@ -1016,10 +1308,7 @@ class _ResultsPagination extends StatelessWidget {
                   ),
                   if (disabled) ...[
                     const SizedBox(height: AppSpacing.xs),
-                    const SizedBox(
-                      height: 2,
-                      child: LinearProgressIndicator(),
-                    ),
+                    const SizedBox(height: 2, child: LinearProgressIndicator()),
                   ],
                 ],
               ),
@@ -1118,7 +1407,9 @@ class _ExecutionPendingContent extends StatelessWidget {
               label: hasTotal
                   ? 'Progreso: ${run.progress.fractionLabel}'
                   : 'Progreso indeterminado',
-              value: hasTotal ? '${(fraction! * 100).round()} por ciento' : null,
+              value: hasTotal
+                  ? '${(fraction! * 100).round()} por ciento'
+                  : null,
               child: LinearProgressIndicator(value: fraction, minHeight: 8),
             ),
             if (hasTotal) ...[
@@ -1222,7 +1513,8 @@ class _UnknownExecutionState extends StatelessWidget {
   }
 }
 
-StatusTone _resultStatusTone(VerificationResultStatus status) => switch (status) {
+StatusTone _resultStatusTone(VerificationResultStatus status) =>
+    switch (status) {
       VerificationResultStatus.complies => StatusTone.success,
       VerificationResultStatus.doesNotComply => StatusTone.danger,
       VerificationResultStatus.reviewRequired => StatusTone.warning,

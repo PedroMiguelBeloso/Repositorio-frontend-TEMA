@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_failure.dart';
+import '../../../core/auth/session_provider.dart';
+import '../../processes/model/evidence_expectation.dart' as evidence_model;
 import '../data/verification_repository.dart';
 import '../data/verification_repository_impl.dart';
 import '../data/verification_result_location_resolver.dart';
@@ -21,6 +23,7 @@ class VerificationResultsState {
     this.page,
     this.selectedResultId,
     this.isChangingPage = false,
+    this.isResolvingApplicability = false,
     this.resultsFailure,
     this.locationContext = const {},
   });
@@ -30,6 +33,7 @@ class VerificationResultsState {
   final service_models.PageInfo? page;
   final String? selectedResultId;
   final bool isChangingPage;
+  final bool isResolvingApplicability;
   final AppFailure? resultsFailure;
   final Map<String, VerificationResultLocationContext> locationContext;
 
@@ -50,6 +54,7 @@ class VerificationResultsState {
     Object? page = _unchanged,
     Object? selectedResultId = _unchanged,
     bool? isChangingPage,
+    bool? isResolvingApplicability,
     Object? resultsFailure = _unchanged,
     Object? locationContext = _unchanged,
   }) {
@@ -63,6 +68,8 @@ class VerificationResultsState {
           ? this.selectedResultId
           : selectedResultId as String?,
       isChangingPage: isChangingPage ?? this.isChangingPage,
+      isResolvingApplicability:
+          isResolvingApplicability ?? this.isResolvingApplicability,
       resultsFailure: identical(resultsFailure, _unchanged)
           ? this.resultsFailure
           : resultsFailure as AppFailure?,
@@ -84,6 +91,7 @@ class VerificationResultsViewModel
   int _locationContextVersion = 0;
   int _requestedPage = 0;
   bool _requestInProgress = false;
+  bool _applicabilityRequestInProgress = false;
 
   VerificationRepository get _repository =>
       ref.read(verificationRepositoryProvider);
@@ -146,12 +154,100 @@ class VerificationResultsViewModel
     state = AsyncData(current.copyWith(selectedResultId: nextId));
   }
 
+  Future<VerificationResult> resolveApplicability({
+    required String resultId,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  }) async {
+    final current = state.value;
+    if (ref.read(sessionProvider)?.isAdmin != true) {
+      throw const PermissionFailure(
+        'Solo un Administrador puede resolver la aplicabilidad.',
+      );
+    }
+    if (_applicabilityRequestInProgress) {
+      throw const ConflictFailure('Ya se está guardando una decisión.');
+    }
+    if (current == null ||
+        current.run.status != VerificationRunStatus.completed ||
+        current.isChangingPage) {
+      throw const ConflictFailure(
+        'La ejecución todavía no permite resolver este resultado.',
+      );
+    }
+    VerificationResult? result;
+    for (final item in current.items) {
+      if (item.id == resultId) {
+        result = item;
+        break;
+      }
+    }
+    if (result == null ||
+        result.runId != runId ||
+        result.applicability.decision != ApplicabilityDecision.undetermined ||
+        current.locationContext[resultId]?.applicabilityMode !=
+            evidence_model.ApplicabilityMode.caseDependent) {
+      throw const ConflictFailure(
+        'Este resultado no tiene una aplicabilidad pendiente confirmada.',
+      );
+    }
+    final normalizedRationale = rationale.trim();
+    if (normalizedRationale.isEmpty) {
+      throw const ValidationFailure('Escribí el fundamento de la decisión.');
+    }
+
+    _applicabilityRequestInProgress = true;
+    state = AsyncData(current.copyWith(isResolvingApplicability: true));
+    try {
+      final updated = await _repository.resolveApplicability(
+        runId: runId,
+        resultId: result.id,
+        revision: result.revision,
+        decision: decision,
+        rationale: normalizedRationale,
+      );
+      if (updated.id != result.id || updated.runId != runId) {
+        throw const UnexpectedFailure(
+          'El servidor devolvió un resultado distinto al solicitado.',
+        );
+      }
+      if (ref.mounted) {
+        final latest = state.value;
+        if (latest != null && latest.items.any((item) => item.id == resultId)) {
+          state = AsyncData(
+            latest.copyWith(
+              items: [
+                for (final item in latest.items)
+                  if (item.id == resultId) updated else item,
+              ],
+              isResolvingApplicability: false,
+            ),
+          );
+        }
+      }
+      return updated;
+    } on ConflictFailure {
+      // A stale revision must be inspected again; never silently retry a decision.
+      await retry();
+      rethrow;
+    } finally {
+      _applicabilityRequestInProgress = false;
+      if (ref.mounted) {
+        final latest = state.value;
+        if (latest != null && latest.isResolvingApplicability) {
+          state = AsyncData(latest.copyWith(isResolvingApplicability: false));
+        }
+      }
+    }
+  }
+
   Future<void> goToPage(int page) async {
     final current = state.value;
     final pageInfo = current?.page;
     if (current == null ||
         pageInfo == null ||
         current.isChangingPage ||
+        _applicabilityRequestInProgress ||
         page < 0 ||
         page >= pageInfo.totalPages ||
         page == pageInfo.page) {
@@ -223,9 +319,7 @@ class VerificationResultsViewModel
       if (!ref.mounted || requestVersion != _requestVersion) return;
 
       if (run.status != VerificationRunStatus.completed) {
-        state = AsyncData(
-          VerificationResultsState(run: run, items: const []),
-        );
+        state = AsyncData(VerificationResultsState(run: run, items: const []));
         return;
       }
 

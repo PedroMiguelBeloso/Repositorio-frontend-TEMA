@@ -73,9 +73,7 @@ class VerificationRepositoryImpl implements VerificationRepository {
         '/verifications/$runId/results',
         queryParameters: {'page': page, 'size': size},
       );
-      return VerificationResultPageDto.fromJson(
-        _map(response.data),
-      ).toModel();
+      return VerificationResultPageDto.fromJson(_map(response.data)).toModel();
     } on DioException catch (error) {
       throw _mapper.map(error);
     } on AppFailure {
@@ -83,6 +81,35 @@ class VerificationRepositoryImpl implements VerificationRepository {
     } catch (_) {
       throw const UnexpectedFailure(
         'La respuesta de resultados de la verificación no tiene un formato válido.',
+      );
+    }
+  }
+
+  @override
+  Future<VerificationResult> resolveApplicability({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  }) async {
+    try {
+      final response = await _api.post(
+        '/verifications/$runId/results/$resultId/applicability',
+        data: {
+          'revision': revision,
+          'decision': decision.apiValue,
+          'rationale': rationale.trim(),
+        },
+      );
+      return VerificationResultDto.fromJson(_map(response.data)).toModel();
+    } on DioException catch (error) {
+      throw _mapper.map(error);
+    } on AppFailure {
+      rethrow;
+    } catch (_) {
+      throw const UnexpectedFailure(
+        'La respuesta de aplicabilidad no tiene un formato válido.',
       );
     }
   }

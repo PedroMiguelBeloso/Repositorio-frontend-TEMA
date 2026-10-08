@@ -538,7 +538,6 @@ Future<ProviderContainer> _pumpApp(
   return ProviderScope.containerOf(tester.element(find.byType(App)));
 }
 
-
 class _TestVerificationHistoryViewModel extends VerificationHistoryViewModel {
   @override
   Future<VerificationHistoryState> build() async => VerificationHistoryState(
@@ -554,6 +553,15 @@ class _TestVerificationHistoryViewModel extends VerificationHistoryViewModel {
 }
 
 class _TestVerificationRepository implements VerificationRepository {
+  @override
+  Future<VerificationResult> resolveApplicability({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  }) => throw UnimplementedError();
+
   @override
   Future<VerificationRun> getVerification(String runId) async =>
       VerificationRun(

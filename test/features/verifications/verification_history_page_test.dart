@@ -324,14 +324,12 @@ Future<void> _scrollHistoryToVisible(WidgetTester tester, Finder target) async {
   expect(
     targetRect.top,
     greaterThanOrEqualTo(viewportRect.top),
-    reason:
-        'El elemento objetivo debe quedar visible dentro del ListView del historial.',
+    reason: 'El elemento objetivo debe quedar visible dentro del ListView del historial.',
   );
   expect(
     targetRect.bottom,
     lessThanOrEqualTo(viewportRect.bottom),
-    reason:
-        'El elemento objetivo debe quedar visible dentro del ListView del historial.',
+    reason: 'El elemento objetivo debe quedar visible dentro del ListView del historial.',
   );
 }
 
@@ -425,6 +423,15 @@ class _TestSessionNotifier extends SessionNotifier {
 }
 
 class _HistoryRepository implements VerificationRepository {
+  @override
+  Future<VerificationResult> resolveApplicability({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  }) => throw UnimplementedError();
+
   _HistoryRepository({
     required this.page0,
     this.page1,

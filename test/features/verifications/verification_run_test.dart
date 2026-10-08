@@ -217,14 +217,15 @@ void main() {
       expect(indicator.value, 0.4);
     });
 
-    testWidgets('shows completed results action', (
-      tester,
-    ) async {
+    testWidgets('shows completed results action', (tester) async {
       await _mountPage(tester, _run(VerificationRunStatus.completed));
 
       expect(find.text('Finalizada').first, findsOneWidget);
       expect(find.text('Ver resultados'), findsOneWidget);
-      expect(find.text('La pantalla de resultados aún está en desarrollo.'), findsNothing);
+      expect(
+        find.text('La pantalla de resultados aún está en desarrollo.'),
+        findsNothing,
+      );
     });
 
     testWidgets('shows backend failure details without retrying the run', (
@@ -269,9 +270,8 @@ Future<void> _mountPage(WidgetTester tester, VerificationRun run) async {
           (_) => const Duration(seconds: 3),
         ),
         sessionProvider.overrideWith(
-          () => _TestSessionNotifier(
-            const Session(role: UserRole.administrator),
-          ),
+          () =>
+              _TestSessionNotifier(const Session(role: UserRole.administrator)),
         ),
       ],
       child: const MaterialApp(home: VerificationRunPage(runId: 'run-1')),
@@ -303,6 +303,15 @@ VerificationRun _run(
 }
 
 class _RunRepository implements VerificationRepository {
+  @override
+  Future<VerificationResult> resolveApplicability({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  }) => throw UnimplementedError();
+
   _RunRepository({required this.response});
 
   final FutureOr<VerificationRun> Function(int call) response;

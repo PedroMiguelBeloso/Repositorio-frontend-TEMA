@@ -338,6 +338,15 @@ final _services = [
 ];
 
 class _HistoryRepository implements VerificationRepository {
+  @override
+  Future<VerificationResult> resolveApplicability({
+    required String runId,
+    required String resultId,
+    required int revision,
+    required HumanApplicabilityDecision decision,
+    required String rationale,
+  }) => throw UnimplementedError();
+
   _HistoryRepository({
     required this.runsByPage,
     this.filteredResult,

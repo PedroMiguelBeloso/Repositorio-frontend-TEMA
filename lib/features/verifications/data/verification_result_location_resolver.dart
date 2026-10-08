@@ -1,4 +1,6 @@
 import '../../processes/data/process_structure_repository.dart';
+import '../../processes/model/evidence_expectation.dart' as evidence_model;
+import '../../processes/model/process_models.dart' as process_models;
 import '../../processes/model/process_structure_models.dart';
 import '../../services/data/service_repository.dart';
 import '../model/verification_history_models.dart';
@@ -14,10 +16,12 @@ class VerificationResultLocationContext {
   const VerificationResultLocationContext({
     required this.macroActivityName,
     this.activityName,
+    this.applicabilityMode,
   });
 
   final String macroActivityName;
   final String? activityName;
+  final evidence_model.ApplicabilityMode? applicabilityMode;
 
   bool get hasActivity => activityName?.trim().isNotEmpty == true;
 }
@@ -87,10 +91,25 @@ class VerificationResultLocationResolverImpl
         }
 
         final activityName = activity?.name.trim();
+        final expectations = switch (result.location) {
+          process_models.EvidenceLocation.input => macro.inputs,
+          process_models.EvidenceLocation.output => macro.outputs,
+          process_models.EvidenceLocation.activityRecord =>
+            activity?.records ?? const <evidence_model.EvidenceExpectation>[],
+          process_models.EvidenceLocation.unknown =>
+            const <evidence_model.EvidenceExpectation>[],
+        };
+        evidence_model.ApplicabilityMode? applicabilityMode;
+        for (final expectation in expectations) {
+          if (expectation.id == result.expectationId) {
+            applicabilityMode = expectation.applicability;
+            break;
+          }
+        }
         contextByResultId[result.id] = VerificationResultLocationContext(
           macroActivityName: macro.name.trim(),
-          activityName:
-              activityName?.isEmpty == true ? null : activityName,
+          activityName: activityName?.isEmpty == true ? null : activityName,
+          applicabilityMode: applicabilityMode,
         );
       }
 
