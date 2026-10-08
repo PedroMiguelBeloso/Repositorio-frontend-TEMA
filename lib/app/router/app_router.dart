@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/session.dart';
 import '../../core/auth/session_provider.dart';
 import '../../core/widgets/app_scaffold.dart';
-import '../../core/widgets/placeholder_page.dart';
 import '../../features/auth/view/change_password_page.dart';
 import '../../features/auth/view/login_page.dart';
 import '../../features/home/view/home_page.dart';
@@ -26,6 +25,7 @@ import '../../features/services/view/service_list_page.dart';
 import '../../features/verifications/view/new_verification_page.dart';
 import '../../features/verifications/view/verification_history_page.dart';
 import '../../features/verifications/view/verification_run_page.dart';
+import '../../features/verifications/view/verification_results_page.dart';
 import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -199,8 +199,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.verificationResultsName,
             path: RouteNames.verificationResultsPath,
-            builder: (context, state) =>
-                const PlaceholderPage(title: 'Resultados de verificación'),
+            builder: (context, state) => VerificationResultsPage(
+              runId: state.pathParameters['runId']!,
+            ),
           ),
           GoRoute(
             name: RouteNames.integrationsName,

@@ -154,12 +154,6 @@ class _RunContent extends StatelessWidget {
                     icon: const Icon(Icons.fact_check_outlined),
                     label: const Text('Ver resultados'),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'La pantalla de resultados aún está en desarrollo.',
-                    style: theme.textTheme.bodySmall,
-                    textAlign: TextAlign.center,
-                  ),
                 ],
                 if (run.status == VerificationRunStatus.failed) ...[
                   OutlinedButton(

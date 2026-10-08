@@ -1,0 +1,363 @@
+import '../../processes/model/process_models.dart';
+
+/// Result status returned by the M2 results contract.
+enum VerificationResultStatus {
+  complies('COMPLIES', 'Cumple'),
+  doesNotComply('DOES_NOT_COMPLY', 'No cumple'),
+  reviewRequired('REVIEW_REQUIRED', 'Requiere revisión'),
+  notApplicable('NOT_APPLICABLE', 'No aplica'),
+  unknown('UNKNOWN', 'Estado no reconocido');
+
+  const VerificationResultStatus(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  static VerificationResultStatus fromApi(String? value) {
+    return values.firstWhere(
+      (status) => status.apiValue == value,
+      orElse: () => VerificationResultStatus.unknown,
+    );
+  }
+}
+
+enum ApplicabilityDecision {
+  applies('APPLIES', 'Aplica'),
+  notApplicable('NOT_APPLICABLE', 'No aplica'),
+  undetermined('UNDETERMINED', 'Indeterminada'),
+  unknown('UNKNOWN', 'No reconocida');
+
+  const ApplicabilityDecision(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  static ApplicabilityDecision fromApi(String? value) {
+    return values.firstWhere(
+      (decision) => decision.apiValue == value,
+      orElse: () => ApplicabilityDecision.unknown,
+    );
+  }
+}
+
+enum DecisionOrigin {
+  deterministic('DETERMINISTIC', 'Comprobación programada'),
+  aiApplicability('AI_APPLICABILITY', 'IA para aplicabilidad'),
+  human('HUMAN', 'Decisión humana'),
+  notEvaluated('NOT_EVALUATED', 'No evaluada'),
+  unknown('UNKNOWN', 'Origen no reconocido');
+
+  const DecisionOrigin(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  static DecisionOrigin fromApi(String? value) {
+    return values.firstWhere(
+      (origin) => origin.apiValue == value,
+      orElse: () => DecisionOrigin.unknown,
+    );
+  }
+}
+
+enum EvidenceSource {
+  drive('DRIVE', 'Google Drive'),
+  redmine('REDMINE', 'Redmine'),
+  imputations('IMPUTATIONS', 'Imputaciones'),
+  toolRecord('TOOL_RECORD', 'Registro de herramienta'),
+  unknown('UNKNOWN', 'Otra fuente');
+
+  const EvidenceSource(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  static EvidenceSource fromApi(String? value) {
+    return values.firstWhere(
+      (source) => source.apiValue == value,
+      orElse: () => EvidenceSource.unknown,
+    );
+  }
+}
+
+enum HumanDecisionType {
+  applicability('APPLICABILITY', 'Aplicabilidad'),
+  resultStatus('RESULT_STATUS', 'Estado final'),
+  unknown('UNKNOWN', 'Decisión');
+
+  const HumanDecisionType(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  static HumanDecisionType fromApi(String? value) {
+    return values.firstWhere(
+      (type) => type.apiValue == value,
+      orElse: () => HumanDecisionType.unknown,
+    );
+  }
+}
+
+enum HumanApplicabilityDecision {
+  applies('APPLIES', 'Sí, aplica'),
+  notApplicable('NOT_APPLICABLE', 'No aplica');
+
+  const HumanApplicabilityDecision(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  static HumanApplicabilityDecision? fromApi(String? value) {
+    if (value == null) return null;
+    for (final decision in values) {
+      if (decision.apiValue == value) return decision;
+    }
+    return null;
+  }
+}
+
+class ApplicabilityAssessment {
+  ApplicabilityAssessment._({
+    required this.decision,
+    required this.origin,
+    required this.rationale,
+    required this.limitations,
+  });
+
+  factory ApplicabilityAssessment({
+    required ApplicabilityDecision decision,
+    required DecisionOrigin origin,
+    required String rationale,
+    required List<String> limitations,
+  }) {
+    if (rationale.trim().isEmpty) {
+      throw const FormatException(
+        'La evaluación de aplicabilidad requiere un fundamento.',
+      );
+    }
+    return ApplicabilityAssessment._(
+      decision: decision,
+      origin: origin,
+      rationale: rationale.trim(),
+      limitations: List.unmodifiable(limitations),
+    );
+  }
+
+  final ApplicabilityDecision decision;
+  final DecisionOrigin origin;
+  final String rationale;
+  final List<String> limitations;
+
+  bool get requiresHumanIntervention =>
+      decision == ApplicabilityDecision.undetermined;
+
+  /// The API does not repeat M1's applicability mode in a result. An origin
+  /// other than NOT_EVALUATED identifies a contextual applicability assessment.
+  bool get hasContextualAssessment =>
+      origin != DecisionOrigin.notEvaluated || requiresHumanIntervention;
+}
+
+class EvidenceReference {
+  EvidenceReference._({
+    required this.kind,
+    required this.source,
+    required this.externalId,
+    required this.displayName,
+    required this.webUrl,
+    required this.observedAt,
+    required this.ticketId,
+  });
+
+  factory EvidenceReference({
+    required EvidenceType kind,
+    required EvidenceSource source,
+    required String externalId,
+    required String displayName,
+    String? webUrl,
+    required DateTime observedAt,
+    String? ticketId,
+  }) {
+    if (externalId.trim().isEmpty || displayName.trim().isEmpty) {
+      throw const FormatException(
+        'La referencia de evidencia requiere identificación y nombre.',
+      );
+    }
+    return EvidenceReference._(
+      kind: kind,
+      source: source,
+      externalId: externalId.trim(),
+      displayName: displayName.trim(),
+      webUrl: webUrl?.trim().isEmpty == true ? null : webUrl?.trim(),
+      observedAt: observedAt,
+      ticketId: ticketId?.trim().isEmpty == true ? null : ticketId?.trim(),
+    );
+  }
+
+  final EvidenceType kind;
+  final EvidenceSource source;
+  final String externalId;
+  final String displayName;
+  final String? webUrl;
+  final DateTime observedAt;
+  final String? ticketId;
+
+  Uri? get safeWebUri {
+    if (webUrl == null) return null;
+    final uri = Uri.tryParse(webUrl!);
+    if (uri == null || uri.host.isEmpty) return null;
+    if (uri.scheme != 'https' && uri.scheme != 'http') return null;
+    return uri;
+  }
+}
+
+class HumanDecisionEvent {
+  HumanDecisionEvent._({
+    required this.id,
+    required this.decisionType,
+    required this.applicabilityDecision,
+    required this.finalStatus,
+    required this.rationale,
+    required this.decidedAt,
+  });
+
+  factory HumanDecisionEvent({
+    required String id,
+    required HumanDecisionType decisionType,
+    HumanApplicabilityDecision? applicabilityDecision,
+    VerificationResultStatus? finalStatus,
+    required String rationale,
+    required DateTime decidedAt,
+  }) {
+    if (id.trim().isEmpty || rationale.trim().isEmpty) {
+      throw const FormatException(
+        'Una decisión humana requiere identificación y fundamento.',
+      );
+    }
+    final isApplicability = decisionType == HumanDecisionType.applicability;
+    final isResultStatus = decisionType == HumanDecisionType.resultStatus;
+    if (isApplicability) {
+      if (applicabilityDecision == null || finalStatus != null) {
+        throw const FormatException(
+          'La decisión humana de aplicabilidad no tiene una forma válida.',
+        );
+      }
+    } else if (isResultStatus) {
+      if (finalStatus == null || applicabilityDecision != null) {
+        throw const FormatException(
+          'La decisión humana de estado no tiene una forma válida.',
+        );
+      }
+    }
+    return HumanDecisionEvent._(
+      id: id.trim(),
+      decisionType: decisionType,
+      applicabilityDecision: applicabilityDecision,
+      finalStatus: finalStatus,
+      rationale: rationale.trim(),
+      decidedAt: decidedAt,
+    );
+  }
+
+  final String id;
+  final HumanDecisionType decisionType;
+  final HumanApplicabilityDecision? applicabilityDecision;
+  final VerificationResultStatus? finalStatus;
+  final String rationale;
+  final DateTime decidedAt;
+}
+
+class VerificationResult {
+  VerificationResult._({
+    required this.id,
+    required this.runId,
+    required this.expectationId,
+    required this.macroActivityId,
+    required this.activityId,
+    required this.displayName,
+    required this.evidenceType,
+    required this.location,
+    required this.subjectTicketId,
+    required this.applicability,
+    required this.proposedStatus,
+    required this.effectiveStatus,
+    required this.rationale,
+    required this.limitations,
+    required this.evidence,
+    required this.humanDecisions,
+    required this.revision,
+  });
+
+  factory VerificationResult({
+    required String id,
+    required String runId,
+    required String expectationId,
+    required String macroActivityId,
+    String? activityId,
+    required String displayName,
+    required EvidenceType evidenceType,
+    required EvidenceLocation location,
+    String? subjectTicketId,
+    required ApplicabilityAssessment applicability,
+    required VerificationResultStatus proposedStatus,
+    required VerificationResultStatus effectiveStatus,
+    required String rationale,
+    required List<String> limitations,
+    required List<EvidenceReference> evidence,
+    required List<HumanDecisionEvent> humanDecisions,
+    required int revision,
+  }) {
+    if (id.trim().isEmpty ||
+        runId.trim().isEmpty ||
+        expectationId.trim().isEmpty ||
+        macroActivityId.trim().isEmpty ||
+        displayName.trim().isEmpty ||
+        rationale.trim().isEmpty ||
+        revision < 0) {
+      throw const FormatException(
+        'El resultado de verificación tiene datos obligatorios inválidos.',
+      );
+    }
+    final normalizedTicket = subjectTicketId?.trim();
+    return VerificationResult._(
+      id: id.trim(),
+      runId: runId.trim(),
+      expectationId: expectationId.trim(),
+      macroActivityId: macroActivityId.trim(),
+      activityId: activityId?.trim().isEmpty == true ? null : activityId?.trim(),
+      displayName: displayName.trim(),
+      evidenceType: evidenceType,
+      location: location,
+      subjectTicketId: normalizedTicket?.isEmpty == true ? null : normalizedTicket,
+      applicability: applicability,
+      proposedStatus: proposedStatus,
+      effectiveStatus: effectiveStatus,
+      rationale: rationale.trim(),
+      limitations: List.unmodifiable(limitations),
+      evidence: List.unmodifiable(evidence),
+      humanDecisions: List.unmodifiable(humanDecisions),
+      revision: revision,
+    );
+  }
+
+  final String id;
+  final String runId;
+  final String expectationId;
+  final String macroActivityId;
+  final String? activityId;
+  final String displayName;
+  final EvidenceType evidenceType;
+  final EvidenceLocation location;
+  final String? subjectTicketId;
+  final ApplicabilityAssessment applicability;
+  final VerificationResultStatus proposedStatus;
+  final VerificationResultStatus effectiveStatus;
+  final String rationale;
+  final List<String> limitations;
+  final List<EvidenceReference> evidence;
+  final List<HumanDecisionEvent> humanDecisions;
+  final int revision;
+
+  bool get hasHumanStatusDecision => proposedStatus != effectiveStatus;
+
+  bool get isTicketScoped => subjectTicketId != null;
+}
