@@ -379,23 +379,26 @@ class _RunDetailsRow extends StatelessWidget {
         Expanded(
           child: _DetailField(
             label: 'Servicio',
-            value: service?.name ?? 'ID de servicio: ${run.serviceId}',
+            value: run.serviceNameSnapshot ?? service?.name ?? 'ID de servicio: ${run.serviceId}',
           ),
         ),
         const SizedBox(width: AppSpacing.xl),
         Expanded(
           child: _DetailField(
             label: 'Proceso / versión',
-            value: process == null
-                ? 'ID de versión: ${run.processVersionId}'
-                : '${process!.processName} · versión ${process!.officialVersion}',
+            value: run.processNameSnapshot != null
+                ? '${run.processNameSnapshot} · versión ${run.processOfficialVersionSnapshot ?? "—"}'
+                : process == null
+                    ? 'ID de versión: ${run.processVersionId}'
+                    : '${process!.processName} · versión ${process!.officialVersion}',
           ),
         ),
         const SizedBox(width: AppSpacing.xl),
         Expanded(
           child: _DetailField(
             label: 'Alcance',
-            value: run.scope.label,
+            value: run.macroActivityNameSnapshot == null
+                ? run.scope.label : 'Macroactividad: ${run.macroActivityNameSnapshot}',
           ),
         ),
       ],
@@ -417,17 +420,20 @@ class _RunDetailsColumn extends StatelessWidget {
       children: [
         _DetailField(
           label: 'Servicio',
-          value: service?.name ?? 'ID de servicio: ${run.serviceId}',
+          value: run.serviceNameSnapshot ?? service?.name ?? 'ID de servicio: ${run.serviceId}',
         ),
         const SizedBox(height: AppSpacing.md),
         _DetailField(
           label: 'Proceso / versión',
-          value: process == null
-              ? 'ID de versión: ${run.processVersionId}'
-              : '${process!.processName} · versión ${process!.officialVersion}',
+          value: run.processNameSnapshot != null
+              ? '${run.processNameSnapshot} · versión ${run.processOfficialVersionSnapshot ?? "—"}'
+              : process == null
+                  ? 'ID de versión: ${run.processVersionId}'
+                  : '${process!.processName} · versión ${process!.officialVersion}',
         ),
         const SizedBox(height: AppSpacing.md),
-        _DetailField(label: 'Alcance', value: run.scope.label),
+        _DetailField(label: 'Alcance', value: run.macroActivityNameSnapshot == null
+            ? run.scope.label : 'Macroactividad: ${run.macroActivityNameSnapshot}'),
       ],
     );
   }

@@ -108,7 +108,7 @@ class _RunContent extends StatelessWidget {
                     children: [
                       _RunField(
                         label: 'Alcance',
-                        value: _scopeLabel(run.scope, run.macroActivityId),
+                        value: _scopeLabel(run.scope, run.macroActivityNameSnapshot ?? run.macroActivityId),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       _RunField(
@@ -129,11 +129,13 @@ class _RunContent extends StatelessWidget {
                       const SizedBox(height: AppSpacing.md),
                       _RunField(label: 'Identificador', value: run.id),
                       const SizedBox(height: AppSpacing.md),
-                      _RunField(label: 'Servicio', value: run.serviceId),
+                      _RunField(label: 'Servicio', value: run.serviceNameSnapshot ?? run.serviceId),
                       const SizedBox(height: AppSpacing.md),
                       _RunField(
                         label: 'Versión del proceso',
-                        value: run.processVersionId,
+                        value: run.processNameSnapshot == null
+                            ? run.processVersionId
+                            : '${run.processNameSnapshot} · versión ${run.processOfficialVersionSnapshot ?? "—"}',
                       ),
                     ],
                   ),

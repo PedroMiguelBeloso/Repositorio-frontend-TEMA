@@ -67,6 +67,10 @@ class VerificationRun {
     this.note,
     this.finishedAt,
     this.failureMessage,
+    this.serviceNameSnapshot,
+    this.processNameSnapshot,
+    this.processOfficialVersionSnapshot,
+    this.macroActivityNameSnapshot,
   });
 
   final String id;
@@ -80,6 +84,10 @@ class VerificationRun {
   final String? note;
   final DateTime? finishedAt;
   final String? failureMessage;
+  final String? serviceNameSnapshot;
+  final String? processNameSnapshot;
+  final String? processOfficialVersionSnapshot;
+  final String? macroActivityNameSnapshot;
 
   bool get isTerminal => status.isTerminal;
   bool get isPollable =>
@@ -97,6 +105,10 @@ class VerificationRunSummary {
     required this.progress,
     required this.startedAt,
     this.macroActivityId,
+    this.serviceNameSnapshot,
+    this.processNameSnapshot,
+    this.processOfficialVersionSnapshot,
+    this.macroActivityNameSnapshot,
   });
 
   final String id;
@@ -107,6 +119,10 @@ class VerificationRunSummary {
   final RunProgress progress;
   final DateTime startedAt;
   final String? macroActivityId;
+  final String? serviceNameSnapshot;
+  final String? processNameSnapshot;
+  final String? processOfficialVersionSnapshot;
+  final String? macroActivityNameSnapshot;
 
   bool get isTerminal => status.isTerminal;
 }

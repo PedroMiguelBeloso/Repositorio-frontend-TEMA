@@ -15,6 +15,10 @@ class VerificationRunDto {
     this.note,
     this.finishedAt,
     this.failureMessage,
+    this.serviceNameSnapshot,
+    this.processNameSnapshot,
+    this.processOfficialVersionSnapshot,
+    this.macroActivityNameSnapshot,
   });
 
   final String id;
@@ -28,6 +32,10 @@ class VerificationRunDto {
   final String? note;
   final DateTime? finishedAt;
   final String? failureMessage;
+  final String? serviceNameSnapshot;
+  final String? processNameSnapshot;
+  final String? processOfficialVersionSnapshot;
+  final String? macroActivityNameSnapshot;
 
   factory VerificationRunDto.fromJson(Map<String, dynamic> json) {
     final rawProgress = _asMap(json['progress']);
@@ -47,6 +55,10 @@ class VerificationRunDto {
       note: _optionalString(json, 'note'),
       finishedAt: _optionalDateTime(json, 'finishedAt'),
       failureMessage: _optionalString(json, 'failureMessage'),
+      serviceNameSnapshot: _optionalString(json, 'serviceNameSnapshot'),
+      processNameSnapshot: _optionalString(json, 'processNameSnapshot'),
+      processOfficialVersionSnapshot: _optionalString(json, 'processOfficialVersionSnapshot'),
+      macroActivityNameSnapshot: _optionalString(json, 'macroActivityNameSnapshot'),
     );
   }
 
@@ -63,6 +75,10 @@ class VerificationRunDto {
       note: note,
       finishedAt: finishedAt,
       failureMessage: failureMessage,
+      serviceNameSnapshot: serviceNameSnapshot,
+      processNameSnapshot: processNameSnapshot,
+      processOfficialVersionSnapshot: processOfficialVersionSnapshot,
+      macroActivityNameSnapshot: macroActivityNameSnapshot,
     );
   }
 
@@ -76,6 +92,10 @@ class VerificationRunDto {
       progress: progress,
       startedAt: startedAt,
       macroActivityId: macroActivityId,
+      serviceNameSnapshot: serviceNameSnapshot,
+      processNameSnapshot: processNameSnapshot,
+      processOfficialVersionSnapshot: processOfficialVersionSnapshot,
+      macroActivityNameSnapshot: macroActivityNameSnapshot,
     );
   }
 }

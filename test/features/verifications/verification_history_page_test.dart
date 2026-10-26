@@ -13,6 +13,31 @@ import 'package:proyecto_tema_frontend/features/verifications/model/verification
 import 'package:proyecto_tema_frontend/features/verifications/view/verification_history_page.dart';
 
 void main() {
+  testWidgets('uses historical names even after current service configuration changes', (tester) async {
+    final historical = VerificationRunSummary(
+      id: 'historical-run',
+      serviceId: 'service-1',
+      processVersionId: 'old-version',
+      scope: VerificationScope.macroActivity,
+      status: VerificationRunStatus.completed,
+      progress: RunProgress.fromValues(total: 1, processed: 1),
+      startedAt: DateTime.utc(2026, 10, 7),
+      serviceNameSnapshot: 'Servicio histórico',
+      processNameSnapshot: 'Proceso histórico',
+      processOfficialVersionSnapshot: '2.1',
+      macroActivityNameSnapshot: 'Organización interna',
+    );
+    await _pumpHistoryPage(tester, _HistoryRepository(page0: PagedResult(
+      items: [historical],
+      page: const PageInfo(page: 0, size: 20, totalElements: 1, totalPages: 1),
+    )), const Session(role: UserRole.reader));
+
+    expect(find.text('Servicio histórico'), findsOneWidget);
+    expect(find.text('Proceso histórico · versión 2.1'), findsOneWidget);
+    expect(find.text('Macroactividad: Organización interna'), findsOneWidget);
+    expect(find.textContaining('old-version'), findsNothing);
+  });
+
   testWidgets('shows API counts, four translated statuses and pagination', (
     tester,
   ) async {
