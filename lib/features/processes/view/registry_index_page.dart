@@ -14,13 +14,20 @@ class RegistryIndexPage extends StatelessWidget {
   const RegistryIndexPage({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1120),
-        child: const Padding(
-          padding: EdgeInsets.all(AppSpacing.xl),
-          child: RegistryCatalogContent(),
+  Widget build(BuildContext context) => ProviderScope(
+    overrides: [
+      registryCatalogViewModelProvider.overrideWith(
+        RegistryCatalogViewModel.new,
+      ),
+    ],
+    child: Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1120),
+          child: const Padding(
+            padding: EdgeInsets.all(AppSpacing.xl),
+            child: RegistryCatalogContent(),
+          ),
         ),
       ),
     ),

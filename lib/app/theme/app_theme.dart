@@ -6,6 +6,7 @@ abstract final class AppColors {
   static const primaryHover = Color(0xFF1D2556);
   static const info = Color(0xFF12649A);
   static const warning = Color(0xFFA84C00);
+  static const warningAccent = Color(0xFFE66A00);
   static const success = Color(0xFF2E6F52);
   static const danger = Color(0xFFA83A3A);
   static const surface = Color(0xFFF5F7FA);

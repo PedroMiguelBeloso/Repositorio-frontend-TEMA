@@ -11,6 +11,36 @@ import 'package:proyecto_tema_frontend/features/verifications/model/verification
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/verification_history_view_model.dart';
 
 void main() {
+  test('refreshes an active run automatically and stops at completion', () async {
+    final runs = <int, PagedResult<VerificationRunSummary>>{
+      0: PagedResult(
+        items: [_run('run-1', 'service-1', 'version-1', 0, 2)],
+        page: const PageInfo(page: 0, size: 20, totalElements: 1, totalPages: 1),
+      ),
+    };
+    final repository = _HistoryRepository(runsByPage: runs);
+    final container = ProviderContainer(overrides: [
+      verificationRepositoryProvider.overrideWithValue(repository),
+      verificationHistoryPollingIntervalProvider.overrideWithValue(
+        const Duration(milliseconds: 20),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(verificationHistoryViewModelProvider.future);
+    runs[0] = PagedResult(
+      items: [_run('run-1', 'service-1', 'version-1', 2, 2,
+        status: VerificationRunStatus.completed)],
+      page: const PageInfo(page: 0, size: 20, totalElements: 1, totalPages: 1),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 90));
+    expect(repository.runRequests.length, greaterThan(1));
+    expect(container.read(verificationHistoryViewModelProvider).requireValue
+      .items.single.status, VerificationRunStatus.completed);
+    final callsAtCompletion = repository.runRequests.length;
+    await Future<void>.delayed(const Duration(milliseconds: 70));
+    expect(repository.runRequests.length, callsAtCompletion);
+  });
+
   test(
     'loads API page data and resolves service/process names from M1',
     () async {
@@ -282,13 +312,14 @@ VerificationRunSummary _run(
   String processVersionId,
   int processed,
   int total,
+  {VerificationRunStatus status = VerificationRunStatus.running}
 ) {
   return VerificationRunSummary(
     id: id,
     serviceId: serviceId,
     processVersionId: processVersionId,
     scope: VerificationScope.process,
-    status: VerificationRunStatus.running,
+    status: status,
     progress: RunProgress.fromValues(total: total, processed: processed),
     startedAt: DateTime.utc(2026, 10, 7, 10, 15),
   );
@@ -337,7 +368,7 @@ final _services = [
   ),
 ];
 
-class _HistoryRepository implements VerificationRepository {
+class _HistoryRepository extends VerificationRepository {
   @override
   Future<VerificationResult> decideResult({
     required String runId,

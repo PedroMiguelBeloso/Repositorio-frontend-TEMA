@@ -44,6 +44,47 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('returns to the first page after leaving the registry index', (
+    tester,
+  ) async {
+    final showRegistry = ValueNotifier(true);
+    addTearDown(showRegistry.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          registryRepositoryProvider.overrideWithValue(
+            _RegistryRepository([
+              for (var index = 0; index < 21; index++) _record(index),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: appTheme,
+          home: ValueListenableBuilder<bool>(
+            valueListenable: showRegistry,
+            builder: (context, visible, child) => visible
+                ? const RegistryIndexPage()
+                : const Scaffold(body: Text('Otra pantalla')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Página siguiente'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mostrando 21–21 de 21'), findsOneWidget);
+
+    showRegistry.value = false;
+    await tester.pumpAndSettle();
+    expect(find.text('Otra pantalla'), findsOneWidget);
+
+    showRegistry.value = true;
+    await tester.pumpAndSettle();
+    expect(find.text('Mostrando 1–20 de 21'), findsOneWidget);
+    expect(find.text('Registro 0'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('empty and narrow layouts do not overflow', (tester) async {
     tester.view.physicalSize = const Size(375, 760);
     tester.view.devicePixelRatio = 1;

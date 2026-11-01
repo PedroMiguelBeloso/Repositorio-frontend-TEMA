@@ -11,6 +11,7 @@ import 'package:proyecto_tema_frontend/features/verifications/data/verification_
 import 'package:proyecto_tema_frontend/features/verifications/model/new_verification_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/verification_history_models.dart';
 import 'package:proyecto_tema_frontend/features/verifications/model/verification_result_models.dart';
+import 'package:proyecto_tema_frontend/features/verifications/model/verification_work_item.dart';
 import 'package:proyecto_tema_frontend/features/verifications/view/verification_run_page.dart';
 import 'package:proyecto_tema_frontend/features/verifications/viewmodel/verification_run_view_model.dart';
 
@@ -184,6 +185,10 @@ void main() {
       );
 
       expect(find.text('En espera'), findsOneWidget);
+      expect(
+        find.textContaining('Todavía no se buscó ninguna evidencia'),
+        findsOneWidget,
+      );
       expect(find.text('0 de 0 registros procesados'), findsOneWidget);
       expect(find.text('Progreso indeterminado'), findsOneWidget);
       expect(find.text('0 %'), findsNothing);
@@ -210,6 +215,7 @@ void main() {
       expect(find.text('4 de 10 registros procesados'), findsOneWidget);
       expect(find.text('40 %'), findsOneWidget);
       expect(find.text('Requieren revisión: 1'), findsOneWidget);
+      expect(find.textContaining('Pendientes de resultado: 6'), findsOneWidget);
       expect(find.textContaining('errores'), findsNothing);
       final indicator = tester.widget<LinearProgressIndicator>(
         find.byType(LinearProgressIndicator),
@@ -221,11 +227,176 @@ void main() {
       await _mountPage(tester, _run(VerificationRunStatus.completed));
 
       expect(find.text('Finalizada').first, findsOneWidget);
+      expect(find.textContaining('terminó el procesamiento'), findsOneWidget);
       expect(find.text('Ver resultados'), findsOneWidget);
       expect(
         find.text('La pantalla de resultados aún está en desarrollo.'),
         findsNothing,
       );
+    });
+
+    testWidgets('keeps results action visible above a long evidence list', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1000, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _mountPage(
+        tester,
+        _run(VerificationRunStatus.completed),
+        workItems: List.generate(
+          46,
+          (index) => VerificationWorkItem(
+            expectationId: 'evidence-$index',
+            displayName: 'Evidencia $index',
+            searchStatus: 'FOUND',
+          ),
+        ),
+      );
+
+      final action = find.byKey(const Key('open-verification-results'));
+      expect(action, findsOneWidget);
+      expect(tester.getTopLeft(action).dy, lessThan(700));
+      expect(find.text('Ver resultados'), findsOneWidget);
+      expect(find.text('Evidencia 0'), findsNothing);
+      expect(find.text('Ver todas las evidencias'), findsOneWidget);
+      expect(
+        tester.widget<Scrollbar>(find.byType(Scrollbar)).thumbVisibility,
+        isTrue,
+      );
+    });
+
+    testWidgets(
+      'keeps execution details first and expands a long list on mobile',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await _mountPage(
+          tester,
+          _run(VerificationRunStatus.completed),
+          workItems: List.generate(
+            25,
+            (index) => VerificationWorkItem(
+              expectationId: 'item-$index',
+              displayName:
+                  'Evidencia documental con un nombre bastante largo $index',
+              searchStatus: 'NOT_FOUND',
+            ),
+          ),
+        );
+
+        expect(
+          find.text('Evidencia documental con un nombre bastante largo 0'),
+          findsNothing,
+        );
+        expect(
+          tester.widget<Scrollbar>(find.byType(Scrollbar)).thumbVisibility,
+          isTrue,
+        );
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('toggle-evidence-list')),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('toggle-evidence-list')));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Evidencia documental con un nombre bastante largo 0'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('distinguishes unsearched evidence from an active lookup', (
+      tester,
+    ) async {
+      await _mountPage(
+        tester,
+        _run(VerificationRunStatus.running),
+        workItems: const [
+          VerificationWorkItem(
+            expectationId: 'one',
+            displayName: 'Ticket actualizado',
+            subjectTicketId: '42',
+            searchStatus: 'IN_PROGRESS',
+          ),
+          VerificationWorkItem(
+            expectationId: 'two',
+            displayName: 'Acta de cierre',
+            searchStatus: 'NOT_ATTEMPTED',
+          ),
+        ],
+      );
+
+      expect(find.text('Estado de cada evidencia'), findsOneWidget);
+      expect(find.text('Consultando fuente'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('toggle-evidence-list')),
+        350,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('toggle-evidence-list')));
+      await tester.pumpAndSettle();
+      expect(find.text('Consultando fuente'), findsOneWidget);
+      expect(find.text('Todavía no se buscó'), findsOneWidget);
+    });
+
+    testWidgets('does not call a completed unsearched result pending', (
+      tester,
+    ) async {
+      await _mountPage(
+        tester,
+        _run(VerificationRunStatus.completed),
+        workItems: const [
+          VerificationWorkItem(
+            expectationId: 'manual',
+            displayName: 'Imputaciones',
+            searchStatus: 'NOT_ATTEMPTED',
+            resultStatus: 'REVIEW_REQUIRED',
+          ),
+          VerificationWorkItem(
+            expectationId: 'not-applicable',
+            displayName: 'Riesgos del caso',
+            searchStatus: 'NOT_ATTEMPTED',
+            resultStatus: 'NOT_APPLICABLE',
+          ),
+        ],
+      );
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('toggle-evidence-list')),
+        350,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('toggle-evidence-list')));
+      await tester.pumpAndSettle();
+      expect(find.text('No se consultó la fuente'), findsOneWidget);
+      expect(find.text('No se consultó: no aplica'), findsOneWidget);
+      expect(find.text('Todavía no se buscó'), findsNothing);
+    });
+
+    testWidgets('keeps progress visible when the evidence detail fails', (
+      tester,
+    ) async {
+      await _mountPage(
+        tester,
+        _run(VerificationRunStatus.running),
+        failWorkItems: true,
+      );
+
+      expect(find.text('Progreso'), findsOneWidget);
+      expect(
+        find.text('No se pudo consultar el estado de cada evidencia.'),
+        findsOneWidget,
+      );
+      expect(find.text('Reintentar detalle'), findsOneWidget);
     });
 
     testWidgets('shows backend failure details without retrying the run', (
@@ -260,8 +431,17 @@ ProviderContainer _createContainer(
   );
 }
 
-Future<void> _mountPage(WidgetTester tester, VerificationRun run) async {
-  final repository = _RunRepository(response: (_) => run);
+Future<void> _mountPage(
+  WidgetTester tester,
+  VerificationRun run, {
+  List<VerificationWorkItem> workItems = const [],
+  bool failWorkItems = false,
+}) async {
+  final repository = _RunRepository(
+    response: (_) => run,
+    workItems: workItems,
+    failWorkItems: failWorkItems,
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -302,7 +482,7 @@ VerificationRun _run(
   );
 }
 
-class _RunRepository implements VerificationRepository {
+class _RunRepository extends VerificationRepository {
   @override
   Future<VerificationResult> decideResult({
     required String runId,
@@ -321,9 +501,22 @@ class _RunRepository implements VerificationRepository {
     required String rationale,
   }) => throw UnimplementedError();
 
-  _RunRepository({required this.response});
+  _RunRepository({
+    required this.response,
+    this.workItems = const [],
+    this.failWorkItems = false,
+  });
 
   final FutureOr<VerificationRun> Function(int call) response;
+  final List<VerificationWorkItem> workItems;
+  final bool failWorkItems;
+
+  @override
+  Future<List<VerificationWorkItem>> listWorkItems(String runId) async {
+    if (failWorkItems) throw StateError('lookup unavailable');
+    return workItems;
+  }
+
   int calls = 0;
   int _active = 0;
   int maxConcurrent = 0;

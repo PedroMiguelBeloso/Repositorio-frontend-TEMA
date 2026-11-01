@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:proyecto_tema_frontend/app/theme/app_theme.dart';
 import 'package:proyecto_tema_frontend/core/auth/session.dart';
 import 'package:proyecto_tema_frontend/core/auth/session_provider.dart';
 import 'package:proyecto_tema_frontend/features/processes/model/evidence_expectation.dart'
@@ -33,9 +35,16 @@ void main() {
       ),
     );
     await _pump(tester, repository, const Size(900, 1000), admin: true);
+    await tester.ensureVisible(find.text('Ticket actualizado'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Ticket actualizado'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Decisiones'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Decisiones'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Confirmar o corregir resultado'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Confirmar o corregir resultado'));
     await tester.pumpAndSettle();
     expect(find.text('Propuesta automática: Cumple'), findsOneWidget);
@@ -61,7 +70,10 @@ void main() {
       find.text('Decisión registrada. Estado actual: No cumple.'),
       findsOneWidget,
     );
-    expect(find.text('Decisiones humanas previas'), findsOneWidget);
+    expect(
+      find.text('Decisiones registradas por Administradores'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('reader cannot open human status review', (tester) async {
@@ -78,10 +90,88 @@ void main() {
       ),
     );
     await _pump(tester, repository, const Size(390, 800));
+    await tester.ensureVisible(find.text('Ticket actualizado'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Ticket actualizado'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Decisiones'));
     await tester.pumpAndSettle();
     expect(find.text('Confirmar o corregir resultado'), findsNothing);
   });
+
+  testWidgets(
+    'human applicability separates the decision from the written reason and copies both',
+    (tester) async {
+      final event = HumanDecisionEvent(
+        id: 'human-1',
+        decisionType: HumanDecisionType.applicability,
+        applicabilityDecision: HumanApplicabilityDecision.applies,
+        rationale: 'aplica',
+        decidedAt: DateTime.utc(2026, 10, 26, 21, 57),
+      );
+      final repository = _PageRepository(
+        run: _run(VerificationRunStatus.completed),
+        page: PagedResult(
+          items: [
+            _result('r3', 'Orden de transporte', humanDecisions: [event]),
+          ],
+          page: const PageInfo(
+            page: 0,
+            size: 20,
+            totalElements: 1,
+            totalPages: 1,
+          ),
+        ),
+      );
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      await _pump(tester, repository, const Size(900, 1000), admin: true);
+      await tester.ensureVisible(find.text('Orden de transporte'));
+      await tester.tap(find.text('Orden de transporte'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Decisiones'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Decisiones'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sí, aplica'), findsOneWidget);
+      expect(
+        find.text('Fundamento escrito por el Administrador'),
+        findsOneWidget,
+      );
+      expect(find.text('aplica'), findsOneWidget);
+      await tester.ensureVisible(find.text('Copiar decisión y fundamento'));
+      await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copiar decisión y fundamento'));
+      await tester.pumpAndSettle();
+      expect(
+        copied,
+        contains(
+          'Decisión: Sí, aplica\n\nFundamento escrito por el administrador:\naplica',
+        ),
+      );
+    },
+  );
 
   testWidgets(
     'admin can resolve pending applicability and sees the updated status',
@@ -107,9 +197,12 @@ void main() {
         ),
       );
       await _pump(tester, repository, const Size(900, 1000), admin: true);
+      await tester.ensureVisible(find.text('Orden de transporte'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Orden de transporte'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Resolver aplicabilidad'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Resolver aplicabilidad'));
       await tester.pumpAndSettle();
       expect(find.text('Orden de transporte'), findsNWidgets(2));
@@ -130,7 +223,12 @@ void main() {
         find.text('Aplicabilidad guardada. Estado actual: No aplica.'),
         findsOneWidget,
       );
-      expect(find.text('Decisiones humanas previas'), findsOneWidget);
+      await tester.tap(find.text('Decisiones'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Decisiones registradas por Administradores'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -154,10 +252,53 @@ void main() {
       ),
     );
     await _pump(tester, repository, const Size(900, 1000));
+    await tester.ensureVisible(find.text('Orden de transporte'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Orden de transporte'));
     await tester.pumpAndSettle();
     expect(find.text('Resolver aplicabilidad'), findsNothing);
   });
+
+  testWidgets(
+    'admin sees why a document cannot be retried without case facts',
+    (tester) async {
+      final repository = _PageRepository(
+        run: _run(VerificationRunStatus.completed),
+        page: PagedResult(
+          items: [
+            _result(
+              'r3',
+              'Riesgos comerciales',
+              proposedStatus: VerificationResultStatus.reviewRequired,
+              effectiveStatus: VerificationResultStatus.reviewRequired,
+              applicabilityDecision: ApplicabilityDecision.undetermined,
+              applicabilityOrigin: DecisionOrigin.aiApplicability,
+              applicabilityLimitations: const [
+                'No se recibieron datos del caso para interpretar.',
+              ],
+            ),
+          ],
+          page: const PageInfo(
+            page: 0,
+            size: 20,
+            totalElements: 1,
+            totalPages: 1,
+          ),
+        ),
+      );
+      await _pump(tester, repository, const Size(900, 950), admin: true);
+      await tester.ensureVisible(find.text('Riesgos comerciales'));
+      await tester.tap(find.text('Riesgos comerciales'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Esta ejecución no contiene hechos del caso'),
+        findsOneWidget,
+      );
+      expect(find.text('Reintentar con Gemini'), findsNothing);
+      expect(find.text('Resolver aplicabilidad'), findsOneWidget);
+    },
+  );
+
   testWidgets(
     'completed execution shows four statuses and ticket-specific results',
     (tester) async {
@@ -210,14 +351,28 @@ void main() {
       expect(find.text('No aplica'), findsOneWidget);
       expect(find.text('Ticket 204'), findsOneWidget);
       expect(find.text('Ticket 205'), findsOneWidget);
-      expect(find.text('Macroactividad: Gestión operativa'), findsOneWidget);
-      expect(
-        find.text('Macroactividad: Atención de incidentes'),
-        findsOneWidget,
-      );
-      expect(find.text('· Actividad: Actualizar ticket'), findsOneWidget);
+      expect(find.text('Gestión operativa'), findsOneWidget);
+      expect(find.text('Atención de incidentes'), findsOneWidget);
+      expect(find.text('ACTIVIDAD · Actualizar ticket'), findsOneWidget);
       expect(find.text('Sin resultados'), findsNothing);
+      final reviewBar = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('result-status-bar-r3')),
+      );
+      final nonCompliantBar = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('result-status-bar-r2')),
+      );
+      expect(
+        ((reviewBar.decoration as BoxDecoration).border! as Border).left.color,
+        AppColors.warningAccent,
+      );
+      expect(
+        ((nonCompliantBar.decoration as BoxDecoration).border! as Border)
+            .left
+            .color,
+        AppColors.danger,
+      );
 
+      await tester.ensureVisible(find.text('Ticket actualizado').first);
       await tester.tap(find.text('Ticket actualizado').first);
       await tester.pumpAndSettle();
 
@@ -226,10 +381,17 @@ void main() {
         find.textContaining('La evidencia de prueba respalda'),
         findsOneWidget,
       );
-      expect(find.text('Referencias encontradas'), findsOneWidget);
       expect(find.text('Hubo una decisión humana posterior'), findsOneWidget);
-      expect(find.text('Propuesta automática'), findsOneWidget);
+      expect(find.text('Evaluación automática del sistema'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Fuentes'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Fuentes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Referencias encontradas'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Ticket actualizado').first);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Ticket actualizado').first);
       await tester.pumpAndSettle();
       expect(find.text('Hubo una decisión humana posterior'), findsNothing);
@@ -333,6 +495,10 @@ void main() {
       );
       await _pump(tester, repository, const Size(390, 800));
 
+      await tester.ensureVisible(
+        find.text('Registro con aplicabilidad pendiente'),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Registro con aplicabilidad pendiente'));
       await tester.pumpAndSettle();
 
@@ -342,11 +508,15 @@ void main() {
         find.textContaining('requiere intervención de un Administrador'),
         findsOneWidget,
       );
+      await tester.ensureVisible(find.text('Fuentes'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Fuentes'));
+      await tester.pumpAndSettle();
       expect(find.text('Registro de auditoría'), findsOneWidget);
       expect(find.text('Registro de herramienta'), findsOneWidget);
       expect(find.text('Ticket'), findsNothing);
       expect(find.text('Abrir referencia'), findsOneWidget);
-      expect(find.textContaining('08/10/2026'), findsOneWidget);
+      expect(find.text('08/10/2026 09:00'), findsOneWidget);
     },
   );
 
@@ -378,7 +548,14 @@ void main() {
       ),
     );
     await _pump(tester, repository, const Size(390, 800));
+    await tester.ensureVisible(find.text('Documento de evidencia'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Documento de evidencia'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Fuentes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fuentes'));
     await tester.pumpAndSettle();
 
     expect(find.text('Procedimiento oficial'), findsOneWidget);
@@ -388,6 +565,236 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'explains why review is needed and whether a source was searched',
+    (tester) async {
+      final repository = _PageRepository(
+        run: _run(VerificationRunStatus.completed),
+        page: PagedResult(
+          items: [
+            _result(
+              'r1',
+              'Riesgos comerciales',
+              proposedStatus: VerificationResultStatus.reviewRequired,
+              effectiveStatus: VerificationResultStatus.reviewRequired,
+              applicabilityDecision: ApplicabilityDecision.undetermined,
+              reviewReason: ReviewReasonCode.applicabilityPending,
+              searchStatus: EvidenceSearchStatus.notAttempted,
+            ),
+          ],
+          page: const PageInfo(
+            page: 0,
+            size: 20,
+            totalElements: 1,
+            totalPages: 1,
+          ),
+        ),
+      );
+      await _pump(tester, repository, const Size(900, 1000));
+      await tester.ensureVisible(find.text('Riesgos comerciales'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Riesgos comerciales'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No se consultó: aplicabilidad pendiente'),
+        findsOneWidget,
+      );
+      expect(find.text('Falta decidir si aplica'), findsOneWidget);
+      expect(
+        find.textContaining('Primero debe resolverse la aplicabilidad'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('does not describe a non-applicable result as still pending', (
+    tester,
+  ) async {
+    final repository = _PageRepository(
+      run: _run(VerificationRunStatus.completed),
+      page: PagedResult(
+        items: [
+          _result(
+            'r3',
+            'Riesgos comerciales',
+            proposedStatus: VerificationResultStatus.notApplicable,
+            effectiveStatus: VerificationResultStatus.notApplicable,
+            applicabilityDecision: ApplicabilityDecision.notApplicable,
+            applicabilityOrigin: DecisionOrigin.aiApplicability,
+            searchStatus: EvidenceSearchStatus.notAttempted,
+          ),
+        ],
+        page: const PageInfo(
+          page: 0,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+        ),
+      ),
+    );
+    await _pump(tester, repository, const Size(900, 1000));
+    await tester.ensureVisible(find.text('Riesgos comerciales'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Riesgos comerciales'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No se consultó: no aplica'), findsOneWidget);
+    expect(find.text('Todavía no se buscó'), findsNothing);
+  });
+
+  testWidgets('explains a retry proposal without changing the human outcome', (
+    tester,
+  ) async {
+    final repository = _PageRepository(
+      run: _run(VerificationRunStatus.completed),
+      page: PagedResult(
+        items: [
+          _result(
+            'retry',
+            'Ticket con requerimiento',
+            subjectTicketId: '2',
+            proposedStatus: VerificationResultStatus.reviewRequired,
+            effectiveStatus: VerificationResultStatus.doesNotComply,
+            reviewReason: ReviewReasonCode.aiInconclusive,
+          ),
+        ],
+        page: const PageInfo(
+          page: 0,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+        ),
+      ),
+    );
+
+    await _pump(tester, repository, const Size(900, 1000), admin: true);
+    await tester.ensureVisible(find.text('Ticket con requerimiento'));
+    await tester.tap(find.text('Ticket con requerimiento'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Por qué la propuesta automática requiere revisión'),
+      findsOneWidget,
+    );
+    expect(find.text('Interpretación no concluyente'), findsOneWidget);
+    expect(find.text('Motivo no informado'), findsNothing);
+    expect(
+      find.textContaining('estado efectivo es «No cumple»'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'shows assessment methods and keeps Gemini ID in technical details',
+    (tester) async {
+      final repository = _PageRepository(
+        run: _run(VerificationRunStatus.completed),
+        page: PagedResult(
+          items: [
+            _result(
+              'ai',
+              'Ticket con requerimiento asignado',
+              subjectTicketId: '3',
+              applicabilityOrigin: DecisionOrigin.aiApplicability,
+              rationale:
+                  "Propuesta IA: El ticket sigue en estado 'To Do'. Campos citados: [statusName, assignedTo]. Modelo: gemini-3.5-flash-lite; respuesta: 2inmatWXMdiUmtkP2cmUoQ0.",
+            ),
+            _result(
+              'drive',
+              'Mail WON',
+              searchStatus: EvidenceSearchStatus.found,
+            ),
+          ],
+          page: const PageInfo(
+            page: 0,
+            size: 20,
+            totalElements: 2,
+            totalPages: 1,
+          ),
+        ),
+      );
+      await _pump(tester, repository, const Size(1100, 1000));
+
+      expect(find.text('Aplicabilidad: Gemini'), findsOneWidget);
+      expect(find.text('Cumplimiento: IA + reglas'), findsOneWidget);
+      expect(find.text('Aplicabilidad: regla programada'), findsOneWidget);
+      expect(find.text('Cumplimiento: regla programada'), findsOneWidget);
+      await tester.ensureVisible(
+        find.text('Ticket con requerimiento asignado'),
+      );
+      await tester.tap(find.text('Ticket con requerimiento asignado'));
+      await tester.pumpAndSettle();
+      expect(find.text("El ticket sigue en estado 'To Do'."), findsOneWidget);
+      expect(
+        find.textContaining('Campos del ticket considerados:'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('2inmatWXMdiUmtkP2cmUoQ0'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Datos técnicos de la respuesta de IA'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Datos técnicos de la respuesta de IA'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('ID de respuesta de Gemini:'), findsOneWidget);
+    },
+  );
+
+  testWidgets('paginates above and below long result groups', (tester) async {
+    final repository = _PageRepository(
+      run: _run(VerificationRunStatus.completed),
+      page: PagedResult(
+        items: [_result('r1', 'Mail WON')],
+        page: const PageInfo(
+          page: 0,
+          size: 20,
+          totalElements: 21,
+          totalPages: 2,
+        ),
+      ),
+    );
+    await _pump(tester, repository, const Size(1000, 900));
+
+    expect(find.text('Página 1 de 2'), findsNWidgets(2));
+    expect(
+      tester.getTopLeft(find.text('Página 1 de 2').first).dy,
+      lessThan(tester.getTopLeft(find.text('Mail WON')).dy),
+    );
+  });
+
+  for (final width in [320.0, 1440.0]) {
+    testWidgets('results remain readable at $width logical pixels', (
+      tester,
+    ) async {
+      final repository = _PageRepository(
+        run: _run(VerificationRunStatus.completed),
+        page: PagedResult(
+          items: [_result('r1', 'Ticket actualizado', subjectTicketId: '204')],
+          page: const PageInfo(
+            page: 0,
+            size: 20,
+            totalElements: 1,
+            totalPages: 1,
+          ),
+        ),
+      );
+      await _pump(tester, repository, Size(width, 900));
+      expect(tester.takeException(), isNull, reason: 'overview at $width');
+      await tester.ensureVisible(find.text('Ticket actualizado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ticket actualizado'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SelectableText), findsWidgets);
+      expect(find.text('Evaluación'), findsOneWidget);
+      expect(find.text('Copiar resultado completo'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 Future<void> _pump(
@@ -439,7 +846,12 @@ VerificationResult _result(
   VerificationResultStatus effectiveStatus = VerificationResultStatus.complies,
   ApplicabilityDecision applicabilityDecision = ApplicabilityDecision.applies,
   DecisionOrigin applicabilityOrigin = DecisionOrigin.deterministic,
+  ReviewReasonCode reviewReason = ReviewReasonCode.unknown,
+  EvidenceSearchStatus searchStatus = EvidenceSearchStatus.unknown,
+  List<String> applicabilityLimitations = const [],
   List<EvidenceReference> evidence = const [],
+  List<HumanDecisionEvent>? humanDecisions,
+  String? rationale,
 }) {
   return VerificationResult(
     id: id,
@@ -461,26 +873,31 @@ VerificationResult _result(
       rationale: applicabilityDecision == ApplicabilityDecision.undetermined
           ? 'No hay información suficiente para resolver la aplicabilidad.'
           : 'La evidencia aplica al alcance seleccionado.',
-      limitations: const [],
+      limitations: applicabilityLimitations,
     ),
     proposedStatus: proposedStatus,
     effectiveStatus: effectiveStatus,
+    reviewReason: reviewReason,
+    searchStatus: searchStatus,
     rationale:
+        rationale ??
         'La evidencia de prueba respalda la conclusión de este resultado.',
     limitations: const [],
     evidence: evidence,
-    humanDecisions: effectiveStatus == VerificationResultStatus.doesNotComply
-        ? [
-            HumanDecisionEvent(
-              id: 'decision-$id',
-              decisionType: HumanDecisionType.resultStatus,
-              finalStatus: effectiveStatus,
-              rationale:
-                  'El Administrador corrigió el estado después de revisar el resultado.',
-              decidedAt: DateTime.utc(2026, 10, 8, 13),
-            ),
-          ]
-        : const [],
+    humanDecisions:
+        humanDecisions ??
+        (effectiveStatus == VerificationResultStatus.doesNotComply
+            ? [
+                HumanDecisionEvent(
+                  id: 'decision-$id',
+                  decisionType: HumanDecisionType.resultStatus,
+                  finalStatus: effectiveStatus,
+                  rationale:
+                      'El Administrador corrigió el estado después de revisar el resultado.',
+                  decidedAt: DateTime.utc(2026, 10, 8, 13),
+                ),
+              ]
+            : const []),
     revision: 1,
   );
 }
@@ -520,7 +937,7 @@ class _AdminSessionNotifier extends SessionNotifier {
   Session? build() => const Session(role: UserRole.administrator);
 }
 
-class _PageRepository implements VerificationRepository {
+class _PageRepository extends VerificationRepository {
   @override
   Future<VerificationResult> decideResult({
     required String runId,

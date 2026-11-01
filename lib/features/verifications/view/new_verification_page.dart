@@ -8,6 +8,7 @@ import '../../../core/widgets/app_error_view.dart';
 import '../../../core/errors/app_failure.dart';
 import '../model/new_verification_models.dart';
 import '../viewmodel/new_verification_view_model.dart';
+import 'verification_copy_button.dart';
 
 class NewVerificationPage extends ConsumerStatefulWidget {
   const NewVerificationPage({super.key});
@@ -32,20 +33,22 @@ class _NewVerificationPageState extends ConsumerState<NewVerificationPage> {
     final viewModel = ref.read(newVerificationViewModelProvider.notifier);
     return Scaffold(
       appBar: AppBar(title: const Text('Nueva verificación')),
-      body: value.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(
-            semanticsLabel: 'Cargando servicios',
+      body: SelectionArea(
+        child: value.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(
+              semanticsLabel: 'Cargando servicios',
+            ),
           ),
-        ),
-        error: (error, _) => AppErrorView(
-          failure: safeAppFailure(
-            error,
-            fallbackMessage: 'No se pudieron cargar los servicios.',
+          error: (error, _) => AppErrorView(
+            failure: safeAppFailure(
+              error,
+              fallbackMessage: 'No se pudieron cargar los servicios.',
+            ),
+            onRetry: viewModel.reload,
           ),
-          onRetry: viewModel.reload,
+          data: (data) => _content(context, data, viewModel),
         ),
-        data: (data) => _content(context, data, viewModel),
       ),
     );
   }
@@ -73,7 +76,7 @@ class _NewVerificationPageState extends ConsumerState<NewVerificationPage> {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 const Text(
-                  'El sistema usa la versión del proceso asignada al servicio. La vista previa no inicia la ejecución.',
+                  'Elegí el servicio y el alcance. Después revisá qué evidencias se comprobarán y, si corresponde, seleccioná los tickets. La verificación comienza solo al pulsar «Iniciar verificación».',
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 Card.outlined(
@@ -196,9 +199,10 @@ class _NewVerificationPageState extends ConsumerState<NewVerificationPage> {
                         TextFormField(
                           enabled: !state.isStarting,
                           decoration: InputDecoration(
-                            labelText: 'Nota opcional',
+                            labelText: 'Contexto del caso (opcional)',
                             border: const OutlineInputBorder(),
-                            helperText: '${state.note.length}/1000 caracteres',
+                            helperText:
+                                'Describí hechos del caso que ayuden a decidir si una evidencia «depende del caso». No es una decisión de aplicabilidad. ${state.note.length}/1000 caracteres.',
                             errorText: state.note.length > 1000
                                 ? 'La nota no puede superar 1000 caracteres.'
                                 : null,
@@ -220,8 +224,8 @@ class _NewVerificationPageState extends ConsumerState<NewVerificationPage> {
                               : const Icon(Icons.preview_outlined),
                           label: Text(
                             state.isLoadingPreview
-                                ? 'Preparando vista previa…'
-                                : 'Ver vista previa',
+                                ? 'Cargando evidencias y tickets…'
+                                : 'Revisar evidencias y elegir tickets',
                           ),
                         ),
                       ],
@@ -257,46 +261,59 @@ class _NewVerificationPageState extends ConsumerState<NewVerificationPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              '2. Registros que se comprobarán',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              '${preview.expectations.length} registros esperados · revisión del servicio ${preview.serviceRevision}',
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            if (preview.expectations.isEmpty)
-              const Text(
-                'Este alcance no tiene registros esperados configurados.',
+            ExpansionTile(
+              key: ValueKey('preview-expectations-${preview.processVersionId}'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: AppSpacing.md),
+              title: Text(
+                '2. Registros que se comprobarán',
+                style: theme.textTheme.titleLarge,
               ),
-            for (final location in const [
-              'INPUT',
-              'ACTIVITY_RECORD',
-              'OUTPUT',
-            ]) ...[
-              if (preview.expectations.any((e) => e.location == location)) ...[
-                Text(switch (location) {
-                  'INPUT' => 'Entradas',
-                  'OUTPUT' => 'Salidas',
-                  _ => 'Registros de actividades',
-                }, style: theme.textTheme.titleMedium),
-                const SizedBox(height: AppSpacing.sm),
-                for (final item in preview.expectations.where(
-                  (e) => e.location == location,
-                ))
-                  ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.description_outlined),
-                    title: Text(item.displayName),
-                    subtitle: Text(
-                      '${_evidenceLabel(item.evidenceType)} · ${item.applicability == 'CASE_DEPENDENT' ? 'Depende del caso' : 'Siempre'} · ${item.cardinality == 'ONE' ? 'Una' : 'Una o varias'}',
+              subtitle: Text(
+                '${preview.expectations.length} registros esperados · revisión del servicio ${preview.serviceRevision}',
+              ),
+              children: [
+                if (preview.expectations.isEmpty)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Este alcance no tiene registros esperados configurados.',
                     ),
                   ),
-                const Divider(),
+                for (final location in const [
+                  'INPUT',
+                  'ACTIVITY_RECORD',
+                  'OUTPUT',
+                ]) ...[
+                  if (preview.expectations.any(
+                    (e) => e.location == location,
+                  )) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(switch (location) {
+                        'INPUT' => 'Entradas',
+                        'OUTPUT' => 'Salidas',
+                        _ => 'Registros de actividades',
+                      }, style: theme.textTheme.titleMedium),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    for (final item in preview.expectations.where(
+                      (e) => e.location == location,
+                    ))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.description_outlined),
+                        title: Text(item.displayName),
+                        subtitle: Text(
+                          '${_evidenceLabel(item.evidenceType)} · ${item.applicability == 'CASE_DEPENDENT' ? 'Depende del caso' : 'Siempre'} · ${item.cardinality == 'ONE' ? 'Una' : 'Una o varias'}',
+                        ),
+                      ),
+                    const Divider(),
+                  ],
+                ],
               ],
-            ],
+            ),
             if (preview.ticketSelectionGroups.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.md),
               Text('3. Tickets de entrada', style: theme.textTheme.titleLarge),
@@ -329,67 +346,57 @@ class _NewVerificationPageState extends ConsumerState<NewVerificationPage> {
                   onPressed: () => vm.searchTickets(_ticketQuery.text),
                   child: const Text('Reintentar búsqueda'),
                 ),
-              for (final group in preview.ticketSelectionGroups) ...[
-                const SizedBox(height: AppSpacing.lg),
-                Text(group.label, style: theme.textTheme.titleMedium),
-                Text(
-                  group.isSingle
-                      ? 'Seleccioná exactamente un ticket.'
-                      : 'Seleccioná uno o más tickets.',
-                ),
-                if (state.tickets case final ticketPage?) ...[
-                  for (final ticket in ticketPage.items)
-                    CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('#${ticket.id} · ${ticket.subject}'),
-                      subtitle: Text('Estado: ${ticket.status}'),
-                      value:
-                          state.selectedTickets[group.id]?.contains(
-                            ticket.id,
-                          ) ??
-                          false,
-                      onChanged: state.isStarting
-                          ? null
-                          : (_) => vm.toggleTicket(group, ticket.id),
+              if (state.tickets case final ticketPage?) ...[
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: AppSpacing.sm,
+                  children: [
+                    Text(
+                      '${ticketPage.page.totalElements} tickets encontrados',
                     ),
-                  if (ticketPage.items.isEmpty)
-                    const Text('No se encontraron tickets para esta búsqueda.'),
-                  Row(
-                    children: [
-                      Text('${ticketPage.page.totalElements} tickets'),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: 'Página anterior',
-                        onPressed:
-                            ticketPage.page.hasPrevious &&
-                                !state.isLoadingTickets
-                            ? () => vm.searchTickets(
-                                state.ticketQuery,
-                                page: ticketPage.page.page - 1,
-                              )
-                            : null,
-                        icon: const Icon(Icons.chevron_left),
-                      ),
-                      Text(
-                        '${ticketPage.page.page + 1} / ${ticketPage.page.totalPages}',
-                      ),
-                      IconButton(
-                        tooltip: 'Página siguiente',
-                        onPressed:
-                            ticketPage.page.hasNext && !state.isLoadingTickets
-                            ? () => vm.searchTickets(
-                                state.ticketQuery,
-                                page: ticketPage.page.page + 1,
-                              )
-                            : null,
-                        icon: const Icon(Icons.chevron_right),
-                      ),
-                    ],
-                  ),
-                ],
-                Text(
-                  'Seleccionados: ${state.selectedTickets[group.id]?.join(', ') ?? 'ninguno'}',
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Página anterior',
+                          onPressed:
+                              ticketPage.page.hasPrevious &&
+                                  !state.isLoadingTickets
+                              ? () => vm.searchTickets(
+                                  state.ticketQuery,
+                                  page: ticketPage.page.page - 1,
+                                )
+                              : null,
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Text(
+                          '${ticketPage.page.page + 1} / ${ticketPage.page.totalPages}',
+                        ),
+                        IconButton(
+                          tooltip: 'Página siguiente',
+                          onPressed:
+                              ticketPage.page.hasNext && !state.isLoadingTickets
+                              ? () => vm.searchTickets(
+                                  state.ticketQuery,
+                                  page: ticketPage.page.page + 1,
+                                )
+                              : null,
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (ticketPage.items.isEmpty)
+                  const Text('No se encontraron tickets para esta búsqueda.'),
+              ],
+              for (final group in preview.ticketSelectionGroups) ...[
+                const SizedBox(height: AppSpacing.md),
+                _TicketSelectionCard(
+                  group: group,
+                  state: state,
+                  onToggle: (id) => vm.toggleTicket(group, id),
                 ),
               ],
             ],
@@ -429,6 +436,123 @@ class _NewVerificationPageState extends ConsumerState<NewVerificationPage> {
     'TOOL_RECORD' => 'Registro de herramienta',
     _ => value,
   };
+}
+
+class _TicketSelectionCard extends StatelessWidget {
+  const _TicketSelectionCard({
+    required this.group,
+    required this.state,
+    required this.onToggle,
+  });
+
+  final TicketSelectionGroup group;
+  final NewVerificationState state;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedIds = state.selectedTickets[group.id] ?? const <String>{};
+    return Card.outlined(
+      color: AppColors.surfaceVariant.withValues(alpha: 0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(group.label, style: theme.textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              group.isSingle
+                  ? 'Seleccioná exactamente un ticket.'
+                  : 'Seleccioná uno o más tickets.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (state.tickets case final ticketPage?)
+              for (final ticket in ticketPage.items) ...[
+                Material(
+                  color: AppColors.surfaceWhite,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.control),
+                    side: BorderSide(
+                      color: selectedIds.contains(ticket.id)
+                          ? AppColors.primary
+                          : AppColors.border,
+                    ),
+                  ),
+                  child: CheckboxListTile(
+                    key: ValueKey('ticket-${group.id}-${ticket.id}'),
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.trailing,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.xs,
+                    ),
+                    title: Text('#${ticket.id} · ${ticket.subject}'),
+                    subtitle: Text('Estado: ${ticket.status}'),
+                    value: selectedIds.contains(ticket.id),
+                    onChanged: state.isStarting
+                        ? null
+                        : (_) => onToggle(ticket.id),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+            const Divider(height: AppSpacing.xl),
+            Text(
+              'Tickets elegidos en este grupo · ${selectedIds.length}',
+              style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            if (selectedIds.isEmpty)
+              Text(
+                'Ninguno. La selección se conserva al buscar o cambiar de página.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              )
+            else ...[
+              LayoutBuilder(
+                builder: (context, constraints) => Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    for (final id in selectedIds)
+                      InputChip(
+                        label: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth - 64,
+                          ),
+                          child: Text(
+                            state.knownTickets[id] == null
+                                ? 'Ticket #$id'
+                                : '#$id · ${state.knownTickets[id]!.subject}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        tooltip: 'Quitar ticket #$id de «${group.label}»',
+                        onDeleted: state.isStarting ? null : () => onToggle(id),
+                      ),
+                  ],
+                ),
+              ),
+              VerificationCopyButton(
+                text: [
+                  'Tickets elegidos para ${group.label}:',
+                  for (final id in selectedIds)
+                    '#$id · ${state.knownTickets[id]?.subject ?? 'Asunto no disponible'}',
+                ].join('\n'),
+                label: 'Copiar tickets elegidos',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ErrorNotice extends StatelessWidget {

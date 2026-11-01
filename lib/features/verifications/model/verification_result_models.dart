@@ -22,6 +22,117 @@ enum VerificationResultStatus {
   }
 }
 
+enum ReviewReasonCode {
+  applicabilityPending(
+    'APPLICABILITY_PENDING',
+    'Falta decidir si aplica',
+    'Primero confirmá si esta evidencia corresponde al caso.',
+  ),
+  missingTicketSelection(
+    'MISSING_TICKET_SELECTION',
+    'Falta seleccionar un ticket',
+    'No se consultó Redmine porque no se recibió un ticket para esta expectativa.',
+  ),
+  sourceNotConfigured(
+    'SOURCE_NOT_CONFIGURED',
+    'Fuente sin configurar',
+    'El servicio no tiene configurada la fuente necesaria para esta comprobación.',
+  ),
+  sourceUnavailable(
+    'SOURCE_UNAVAILABLE',
+    'Fuente no disponible',
+    'No se pudo consultar la fuente. No se comprobó una ausencia de evidencia.',
+  ),
+  sourceDataInvalid(
+    'SOURCE_DATA_INVALID',
+    'Respuesta inconsistente',
+    'La fuente devolvió datos que no permiten identificar la evidencia con seguridad.',
+  ),
+  searchIncomplete(
+    'SEARCH_INCOMPLETE',
+    'Búsqueda incompleta',
+    'La consulta terminó sin revisar todo el ámbito configurado.',
+  ),
+  multipleMatches(
+    'MULTIPLE_MATCHES',
+    'Varias coincidencias',
+    'Se encontraron varias evidencias y hace falta identificar cuál corresponde.',
+  ),
+  ruleNotDefined(
+    'RULE_NOT_DEFINED',
+    'Regla insuficiente',
+    'La expectativa no define un campo o cambio comprobable de forma automática.',
+  ),
+  aiInconclusive(
+    'AI_INCONCLUSIVE',
+    'Interpretación no concluyente',
+    'La interpretación automática no alcanzó para proponer cumplimiento o incumplimiento.',
+  ),
+  unsupportedSource(
+    'UNSUPPORTED_SOURCE',
+    'Comprobación no disponible',
+    'Esta clase de registro todavía no tiene un lector operativo.',
+  ),
+  other(
+    'OTHER',
+    'Revisión necesaria',
+    'Revisá el fundamento y las limitaciones de esta evidencia.',
+  ),
+  unknown(
+    'UNKNOWN',
+    'Motivo no informado',
+    'El backend no informó un motivo codificado; revisá el fundamento.',
+  );
+
+  const ReviewReasonCode(this.apiValue, this.label, this.explanation);
+  final String apiValue;
+  final String label;
+  final String explanation;
+
+  static ReviewReasonCode fromApi(String? value) => values.firstWhere(
+    (reason) => reason.apiValue == value,
+    orElse: () => ReviewReasonCode.unknown,
+  );
+}
+
+enum EvidenceSearchStatus {
+  notAttempted(
+    'NOT_ATTEMPTED',
+    'Todavía no se buscó',
+    'No se consultó la fuente para esta evidencia.',
+  ),
+  found(
+    'FOUND',
+    'Se encontró evidencia',
+    'La fuente devolvió una referencia; el cumplimiento depende de la regla evaluada.',
+  ),
+  notFound(
+    'NOT_FOUND',
+    'Se buscó y no se encontró',
+    'La búsqueda terminó sin encontrar la evidencia esperada.',
+  ),
+  incomplete(
+    'INCOMPLETE',
+    'Búsqueda sin completar',
+    'La consulta no permitió concluir si existe la evidencia.',
+  ),
+  unknown(
+    'UNKNOWN',
+    'Búsqueda no determinada',
+    'Los datos disponibles no permiten afirmar si se consultó la fuente.',
+  );
+
+  const EvidenceSearchStatus(this.apiValue, this.label, this.explanation);
+  final String apiValue;
+  final String label;
+  final String explanation;
+
+  static EvidenceSearchStatus fromApi(String? value) => values.firstWhere(
+    (status) => status.apiValue == value,
+    orElse: () => EvidenceSearchStatus.unknown,
+  );
+}
+
 enum ApplicabilityDecision {
   applies('APPLIES', 'Aplica'),
   notApplicable('NOT_APPLICABLE', 'No aplica'),
@@ -281,6 +392,8 @@ class VerificationResult {
     required this.applicability,
     required this.proposedStatus,
     required this.effectiveStatus,
+    required this.reviewReason,
+    required this.searchStatus,
     required this.rationale,
     required this.limitations,
     required this.evidence,
@@ -301,6 +414,8 @@ class VerificationResult {
     required ApplicabilityAssessment applicability,
     required VerificationResultStatus proposedStatus,
     required VerificationResultStatus effectiveStatus,
+    ReviewReasonCode reviewReason = ReviewReasonCode.unknown,
+    EvidenceSearchStatus searchStatus = EvidenceSearchStatus.unknown,
     required String rationale,
     required List<String> limitations,
     required List<EvidenceReference> evidence,
@@ -336,6 +451,8 @@ class VerificationResult {
       applicability: applicability,
       proposedStatus: proposedStatus,
       effectiveStatus: effectiveStatus,
+      reviewReason: reviewReason,
+      searchStatus: searchStatus,
       rationale: rationale.trim(),
       limitations: List.unmodifiable(limitations),
       evidence: List.unmodifiable(evidence),
@@ -356,15 +473,68 @@ class VerificationResult {
   final ApplicabilityAssessment applicability;
   final VerificationResultStatus proposedStatus;
   final VerificationResultStatus effectiveStatus;
+  final ReviewReasonCode reviewReason;
+  final EvidenceSearchStatus searchStatus;
   final String rationale;
   final List<String> limitations;
   final List<EvidenceReference> evidence;
   final List<HumanDecisionEvent> humanDecisions;
   final int revision;
 
-  bool get hasHumanStatusDecision => proposedStatus != effectiveStatus;
+  bool get hasHumanStatusDecision => humanDecisions.any(
+    (event) => event.decisionType == HumanDecisionType.resultStatus,
+  );
 
   bool get isTicketScoped => subjectTicketId != null;
+}
+
+class AiRetryAttempt {
+  const AiRetryAttempt({
+    required this.attemptedAt,
+    required this.outcome,
+    required this.previousStatus,
+    required this.proposedStatus,
+    required this.effectiveStatus,
+    required this.rationale,
+    required this.ticketSnapshot,
+    required this.previousResult,
+    required this.model,
+  });
+
+  factory AiRetryAttempt.fromJson(Map<String, dynamic> json) => AiRetryAttempt(
+    attemptedAt: DateTime.parse(json['attemptedAt'] as String),
+    outcome: json['outcome'] as String,
+    previousStatus: VerificationResultStatus.fromApi(
+      json['previousProposedStatus'] as String?,
+    ),
+    proposedStatus: VerificationResultStatus.fromApi(
+      json['proposedStatus'] as String?,
+    ),
+    effectiveStatus: VerificationResultStatus.fromApi(
+      json['effectiveStatus'] as String?,
+    ),
+    rationale: json['rationale'] as String,
+    ticketSnapshot:
+        (json['ticketSnapshot'] as List?)
+            ?.whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList() ??
+        const [],
+    previousResult: Map<String, dynamic>.from(
+      json['previousResult'] as Map? ?? const {},
+    ),
+    model: json['model'] as String?,
+  );
+
+  final DateTime attemptedAt;
+  final String outcome;
+  final VerificationResultStatus previousStatus;
+  final VerificationResultStatus proposedStatus;
+  final VerificationResultStatus effectiveStatus;
+  final String rationale;
+  final List<Map<String, dynamic>> ticketSnapshot;
+  final Map<String, dynamic> previousResult;
+  final String? model;
 }
 
 /// Status choices that can be sent to the human decision endpoint.

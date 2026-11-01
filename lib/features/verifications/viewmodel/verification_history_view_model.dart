@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_failure.dart';
@@ -9,6 +11,10 @@ import '../model/verification_history_models.dart';
 const verificationHistoryPageSize = 20;
 const _serviceLookupPageSize = 100;
 const _unchanged = Object();
+
+final verificationHistoryPollingIntervalProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 3),
+);
 
 class VerificationHistoryState {
   const VerificationHistoryState({
@@ -66,18 +72,22 @@ class VerificationHistoryViewModel
   int _requestVersion = 0;
   int _requestedPage = 0;
   String? _requestedServiceId;
+  Timer? _pollTimer;
 
   VerificationRepository get _repository =>
       ref.read(verificationRepositoryProvider);
 
   @override
   Future<VerificationHistoryState> build() async {
+    ref.onDispose(() => _pollTimer?.cancel());
     _requestedPage = 0;
     _requestedServiceId = null;
-    return _loadSnapshot(
+    final snapshot = await _loadSnapshot(
       page: _requestedPage,
       serviceId: _requestedServiceId,
     );
+    _syncPolling(snapshot);
+    return snapshot;
   }
 
   Future<void> selectService(String? serviceId) async {
@@ -106,6 +116,7 @@ class VerificationHistoryViewModel
           refreshFailure: null,
         ),
       );
+      _syncPolling(state.requireValue);
     } catch (error, stackTrace) {
       if (!ref.mounted || requestVersion != _requestVersion) return;
       state = AsyncError(error, stackTrace);
@@ -115,7 +126,9 @@ class VerificationHistoryViewModel
   Future<void> goToPage(int page) async {
     final current = state.value;
     if (current == null) return;
-    if (page < 0 || page >= current.page.totalPages || page == current.page.page) {
+    if (page < 0 ||
+        page >= current.page.totalPages ||
+        page == current.page.page) {
       return;
     }
 
@@ -139,6 +152,7 @@ class VerificationHistoryViewModel
           refreshFailure: null,
         ),
       );
+      _syncPolling(state.requireValue);
     } catch (error, stackTrace) {
       if (!ref.mounted || requestVersion != _requestVersion) return;
       state = AsyncError(error, stackTrace);
@@ -178,6 +192,7 @@ class VerificationHistoryViewModel
           refreshFailure: null,
         ),
       );
+      _syncPolling(state.requireValue);
     } catch (error) {
       if (!ref.mounted || requestVersion != _requestVersion) return;
       state = AsyncData(
@@ -202,6 +217,7 @@ class VerificationHistoryViewModel
       final snapshot = await _loadSnapshot(page: page, serviceId: serviceId);
       if (!ref.mounted || requestVersion != _requestVersion) return;
       state = AsyncData(snapshot);
+      _syncPolling(snapshot);
     } catch (error, stackTrace) {
       if (!ref.mounted || requestVersion != _requestVersion) return;
       state = AsyncError(error, stackTrace);
@@ -215,9 +231,7 @@ class VerificationHistoryViewModel
     _requestedPage = page;
     _requestedServiceId = serviceId;
 
-    final servicesFuture = _loadAllServices().catchError(
-      (_) => <Service>[],
-    );
+    final servicesFuture = _loadAllServices().catchError((_) => <Service>[]);
     final runsFuture = _repository.listRuns(
       page: page,
       size: verificationHistoryPageSize,
@@ -248,9 +262,23 @@ class VerificationHistoryViewModel
       page = result.page.page + 1;
     }
   }
+
+  void _syncPolling(VerificationHistoryState snapshot) {
+    final hasActiveRuns = snapshot.items.any((run) => !run.isTerminal);
+    if (!hasActiveRuns || !ref.mounted) {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      return;
+    }
+    _pollTimer ??= Timer.periodic(
+      ref.read(verificationHistoryPollingIntervalProvider),
+      (_) => refresh(),
+    );
+  }
 }
 
 final verificationHistoryViewModelProvider =
-    AsyncNotifierProvider<VerificationHistoryViewModel, VerificationHistoryState>(
-      VerificationHistoryViewModel.new,
-    );
+    AsyncNotifierProvider<
+      VerificationHistoryViewModel,
+      VerificationHistoryState
+    >(VerificationHistoryViewModel.new);

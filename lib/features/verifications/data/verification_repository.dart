@@ -2,8 +2,9 @@ import '../../services/model/service_models.dart';
 import '../model/new_verification_models.dart';
 import '../model/verification_history_models.dart';
 import '../model/verification_result_models.dart';
+import '../model/verification_work_item.dart';
 
-abstract interface class VerificationRepository {
+abstract class VerificationRepository {
   Future<PagedResult<Service>> listServices({
     required int page,
     required int size,
@@ -14,6 +15,11 @@ abstract interface class VerificationRepository {
     String? serviceId,
   });
   Future<VerificationRun> getVerification(String runId);
+  Future<List<VerificationWorkItem>> listWorkItems(String runId) async => [];
+  Future<Map<String, dynamic>?> ticketObservation({
+    required String runId,
+    required String resultId,
+  }) async => null;
   Future<PagedResult<VerificationResult>> listResults({
     required String runId,
     required int page,
@@ -33,6 +39,15 @@ abstract interface class VerificationRepository {
     required VerificationResultStatus finalStatus,
     required String rationale,
   });
+  Future<VerificationResult> retryAi({
+    required String runId,
+    required String resultId,
+    required int revision,
+  }) => throw UnimplementedError();
+  Future<List<AiRetryAttempt>> listAiRetries({
+    required String runId,
+    required String resultId,
+  }) => throw UnimplementedError();
   Future<List<VerifiableProcess>> verifiableProcesses(String serviceId);
   Future<VerificationPreview> preview(VerificationTarget target);
   Future<TicketPage> searchTickets(

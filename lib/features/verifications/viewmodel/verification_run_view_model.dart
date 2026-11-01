@@ -6,6 +6,8 @@ import '../../../core/errors/app_failure.dart';
 import '../data/verification_repository.dart';
 import '../data/verification_repository_impl.dart';
 import '../model/verification_history_models.dart';
+import '../model/verification_work_item.dart';
+import 'verification_history_view_model.dart';
 
 final verificationRunPollingIntervalProvider = Provider<Duration>(
   (ref) => const Duration(seconds: 3),
@@ -16,21 +18,29 @@ const _unchanged = Object();
 class VerificationRunDetailState {
   const VerificationRunDetailState({
     required this.run,
+    this.workItems = const [],
+    this.workItemsUnavailable = false,
     this.isRefreshing = false,
     this.refreshFailure,
   });
 
   final VerificationRun run;
+  final List<VerificationWorkItem> workItems;
+  final bool workItemsUnavailable;
   final bool isRefreshing;
   final AppFailure? refreshFailure;
 
   VerificationRunDetailState copyWith({
     VerificationRun? run,
+    List<VerificationWorkItem>? workItems,
+    bool? workItemsUnavailable,
     bool? isRefreshing,
     Object? refreshFailure = _unchanged,
   }) {
     return VerificationRunDetailState(
       run: run ?? this.run,
+      workItems: workItems ?? this.workItems,
+      workItemsUnavailable: workItemsUnavailable ?? this.workItemsUnavailable,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       refreshFailure: identical(refreshFailure, _unchanged)
           ? this.refreshFailure
@@ -56,8 +66,13 @@ class VerificationRunViewModel
     _requestInProgress = true;
     try {
       final run = await _repository.getVerification(runId);
+      final workItems = await _loadWorkItems();
       if (ref.mounted && run.isPollable) _startPolling();
-      return VerificationRunDetailState(run: run);
+      return VerificationRunDetailState(
+        run: run,
+        workItems: workItems ?? const [],
+        workItemsUnavailable: workItems == null,
+      );
     } finally {
       _requestInProgress = false;
     }
@@ -73,9 +88,20 @@ class VerificationRunViewModel
     );
     try {
       final run = await _repository.getVerification(runId);
+      final workItems = await _loadWorkItems();
       if (!ref.mounted) return;
 
-      state = AsyncData(VerificationRunDetailState(run: run));
+      state = AsyncData(
+        VerificationRunDetailState(
+          run: run,
+          workItems: workItems ?? current.workItems,
+          workItemsUnavailable: workItems == null,
+        ),
+      );
+      if (current.run.status != run.status ||
+          current.run.progress.processed != run.progress.processed) {
+        await ref.read(verificationHistoryViewModelProvider.notifier).refresh();
+      }
       if (run.isPollable) {
         _startPolling();
       } else {
@@ -104,6 +130,15 @@ class VerificationRunViewModel
       return;
     }
     await refresh();
+  }
+
+  Future<List<VerificationWorkItem>?> _loadWorkItems() async {
+    try {
+      return await _repository.listWorkItems(runId);
+    } catch (_) {
+      // Aggregate progress remains available while the detail shows a retry action.
+      return null;
+    }
   }
 
   void _startPolling() {

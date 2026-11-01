@@ -15,9 +15,13 @@ import '../../processes/model/process_models.dart';
 import '../../processes/model/evidence_expectation.dart' as evidence_model;
 import '../../services/model/service_models.dart';
 import '../data/verification_result_location_resolver.dart';
+import '../data/verification_repository_impl.dart';
 import '../model/verification_history_models.dart';
 import '../model/verification_result_models.dart';
 import '../viewmodel/verification_results_view_model.dart';
+import 'ai_retry_history_dialog.dart';
+import 'verification_copy_button.dart';
+import 'verification_text_format.dart';
 
 typedef ResultDecisionAction =
     Future<VerificationResult> Function({
@@ -61,13 +65,15 @@ class VerificationResultsPage extends ConsumerWidget {
           onToggleResult: viewModel.toggleResult,
           onResolveApplicability: viewModel.resolveApplicability,
           onDecideResult: viewModel.decideResult,
+          onRetryAi: viewModel.retryAi,
+          onLoadAiRetries: viewModel.loadAiRetries,
         ),
       ),
     );
   }
 }
 
-class _ResultsContent extends StatelessWidget {
+class _ResultsContent extends StatefulWidget {
   const _ResultsContent({
     required this.state,
     required this.isAdmin,
@@ -76,6 +82,8 @@ class _ResultsContent extends StatelessWidget {
     required this.onToggleResult,
     required this.onResolveApplicability,
     required this.onDecideResult,
+    required this.onRetryAi,
+    required this.onLoadAiRetries,
   });
 
   final VerificationResultsState state;
@@ -90,6 +98,32 @@ class _ResultsContent extends StatelessWidget {
   })
   onResolveApplicability;
   final ResultDecisionAction onDecideResult;
+  final Future<VerificationResult> Function(String) onRetryAi;
+  final Future<List<AiRetryAttempt>> Function(String) onLoadAiRetries;
+
+  @override
+  State<_ResultsContent> createState() => _ResultsContentState();
+}
+
+class _ResultsContentState extends State<_ResultsContent> {
+  final ScrollController _scrollController = ScrollController();
+
+  void _changePage(int page) {
+    widget.onPageChanged(page);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,154 +133,65 @@ class _ResultsContent extends StatelessWidget {
             ? AppSpacing.lg
             : AppSpacing.xl;
 
-        return ListView(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            AppSpacing.xl,
-            horizontalPadding,
-            AppSpacing.xxl,
-          ),
-          children: [
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1180),
-                child: _buildBody(context),
-              ),
+        return Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          interactive: true,
+          thickness: 8,
+          radius: const Radius.circular(8),
+          child: ListView(
+            controller: _scrollController,
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              AppSpacing.xl,
+              horizontalPadding + AppSpacing.md,
+              AppSpacing.xxl,
             ),
-          ],
+            children: [
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1080),
+                  child: _buildBody(context),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
   Widget _buildBody(BuildContext context) {
-    switch (state.run.status) {
+    switch (widget.state.run.status) {
       case VerificationRunStatus.queued:
       case VerificationRunStatus.running:
         return _ExecutionPendingContent(
-          run: state.run,
+          run: widget.state.run,
           onBack: () =>
-              context.go(RouteNames.verificationDetails(state.run.id)),
+              context.go(RouteNames.verificationDetails(widget.state.run.id)),
         );
       case VerificationRunStatus.failed:
         return _ExecutionFailedContent(
-          run: state.run,
-          onRetry: onRetry,
+          run: widget.state.run,
+          onRetry: widget.onRetry,
           onBack: () =>
-              context.go(RouteNames.verificationDetails(state.run.id)),
+              context.go(RouteNames.verificationDetails(widget.state.run.id)),
         );
       case VerificationRunStatus.completed:
         return _CompletedResultsContent(
-          state: state,
-          isAdmin: isAdmin,
-          onRetry: onRetry,
-          onPageChanged: onPageChanged,
-          onToggleResult: onToggleResult,
-          onResolveApplicability: onResolveApplicability,
-          onDecideResult: onDecideResult,
+          state: widget.state,
+          isAdmin: widget.isAdmin,
+          onRetry: widget.onRetry,
+          onPageChanged: _changePage,
+          onToggleResult: widget.onToggleResult,
+          onResolveApplicability: widget.onResolveApplicability,
+          onDecideResult: widget.onDecideResult,
+          onRetryAi: widget.onRetryAi,
+          onLoadAiRetries: widget.onLoadAiRetries,
         );
       case VerificationRunStatus.unknown:
-        return _UnknownExecutionState(onRetry: onRetry);
+        return _UnknownExecutionState(onRetry: widget.onRetry);
     }
-  }
-}
-
-class _ResultsHeader extends StatelessWidget {
-  const _ResultsHeader({required this.state, required this.onRetry});
-
-  final VerificationResultsState state;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final actions = OutlinedButton.icon(
-              onPressed:
-                  state.isChangingPage ||
-                      state.isResolvingApplicability ||
-                      state.isDecidingResult
-                  ? null
-                  : onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Actualizar'),
-            );
-
-            if (constraints.maxWidth < 760) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Resultados de la verificación',
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Revisá qué ocurrió con cada evidencia esperada y el fundamento de la conclusión.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      StatusChip(
-                        label: state.run.status.label,
-                        tone: StatusTone.success,
-                      ),
-                      actions,
-                    ],
-                  ),
-                ],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Resultados de la verificación',
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Revisá qué ocurrió con cada evidencia esperada y el fundamento de la conclusión.',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.lg),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    StatusChip(
-                      label: state.run.status.label,
-                      tone: StatusTone.success,
-                    ),
-                    actions,
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _TraceabilityNote(),
-      ],
-    );
   }
 }
 
@@ -259,6 +204,8 @@ class _CompletedResultsContent extends StatelessWidget {
     required this.onToggleResult,
     required this.onResolveApplicability,
     required this.onDecideResult,
+    required this.onRetryAi,
+    required this.onLoadAiRetries,
   });
 
   final VerificationResultsState state;
@@ -273,17 +220,27 @@ class _CompletedResultsContent extends StatelessWidget {
   })
   onResolveApplicability;
   final ResultDecisionAction onDecideResult;
+  final Future<VerificationResult> Function(String) onRetryAi;
+  final Future<List<AiRetryAttempt>> Function(String) onLoadAiRetries;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final page = state.page;
+    final groups = <String, List<VerificationResult>>{};
+    for (final result in state.items) {
+      final contextName =
+          state.locationContext[result.id]?.macroActivityName ?? '';
+      groups
+          .putIfAbsent('${result.macroActivityId}|$contextName', () => [])
+          .add(result);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ResultsHeader(state: state, onRetry: onRetry),
-        const SizedBox(height: AppSpacing.lg),
+        _RunOverview(state: state, onRetry: onRetry),
+        const SizedBox(height: AppSpacing.xxl),
         if (state.resultsFailure != null) ...[
           _ResultsFailureBanner(
             message: state.resultsFailure!.message,
@@ -292,26 +249,82 @@ class _CompletedResultsContent extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
         ],
         if (page != null && page.totalElements > 0) ...[
+          Text('Evidencias evaluadas', style: theme.textTheme.headlineSmall),
+          const SizedBox(height: AppSpacing.xs),
           Text(
-            '${page.totalElements} resultados',
+            '${page.totalElements} resultados en total · se muestran ${state.items.length} en esta página. '
+            'Abrí una evidencia para ver su fundamento, referencias y decisiones.',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          for (final result in state.items) ...[
-            VerificationResultTile(
-              result: result,
-              locationContext: state.locationContext[result.id],
-              isAdmin: isAdmin,
-              isResolvingApplicability: state.isResolvingApplicability,
-              isDecidingResult: state.isDecidingResult,
-              onResolveApplicability: onResolveApplicability,
-              onDecideResult: onDecideResult,
-              isExpanded: result.id == state.selectedResultId,
-              onToggle: () => onToggleResult(result.id),
+          if (page.totalPages > 1) ...[
+            _ResultsPagination(
+              page: page,
+              disabled:
+                  state.isChangingPage ||
+                  state.isResolvingApplicability ||
+                  state.isDecidingResult,
+              onPageChanged: onPageChanged,
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+          for (final group in groups.entries) ...[
+            Card.outlined(
+              color: AppColors.surfaceWhite,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'MACROACTIVIDAD',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.info,
+                        letterSpacing: 1.1,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      state
+                              .locationContext[group.value.first.id]
+                              ?.macroActivityName ??
+                          'Macroactividad del proceso',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      '${group.value.length} evidencias en esta página',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    for (final result in group.value) ...[
+                      VerificationResultTile(
+                        result: result,
+                        locationContext: state.locationContext[result.id],
+                        isAdmin: isAdmin,
+                        isResolvingApplicability:
+                            state.isResolvingApplicability,
+                        isDecidingResult: state.isDecidingResult,
+                        onResolveApplicability: onResolveApplicability,
+                        onDecideResult: onDecideResult,
+                        onRetryAi: onRetryAi,
+                        onLoadAiRetries: onLoadAiRetries,
+                        isRetryingAi: state.isRetryingAi,
+                        isExpanded: result.id == state.selectedResultId,
+                        onToggle: () => onToggleResult(result.id),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
           ],
           if (page.totalPages > 1) ...[
             const SizedBox(height: AppSpacing.md),
@@ -335,32 +348,159 @@ class _CompletedResultsContent extends StatelessWidget {
   }
 }
 
-class _TraceabilityNote extends StatelessWidget {
+class _RunOverview extends StatelessWidget {
+  const _RunOverview({required this.state, required this.onRetry});
+
+  final VerificationResultsState state;
+  final VoidCallback onRetry;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(AppRadii.card),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Se muestran referencias y metadatos de evidencia. La pantalla no inspecciona ni promete inspeccionar el contenido de documentos confidenciales o adjuntos.',
-              style: theme.textTheme.bodySmall,
+    final run = state.run;
+    final process = run.processNameSnapshot?.trim();
+    final service = run.serviceNameSnapshot?.trim();
+    final reviewCount = state.items
+        .where(
+          (item) =>
+              item.effectiveStatus == VerificationResultStatus.reviewRequired,
+        )
+        .length;
+    final compliesCount = state.items
+        .where(
+          (item) => item.effectiveStatus == VerificationResultStatus.complies,
+        )
+        .length;
+    final notCompliesCount = state.items
+        .where(
+          (item) =>
+              item.effectiveStatus == VerificationResultStatus.doesNotComply,
+        )
+        .length;
+
+    return Card.outlined(
+      color: AppColors.surfaceWhite,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'VERIFICACIÓN FINALIZADA',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              process?.isNotEmpty == true ? process! : 'Resultados del proceso',
+              style: theme.textTheme.headlineSmall,
+            ),
+            if (service?.isNotEmpty == true) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text('Servicio: $service', style: theme.textTheme.bodyLarge),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                StatusChip(label: run.status.label, tone: StatusTone.info),
+                if (run.processOfficialVersionSnapshot?.isNotEmpty == true)
+                  Text(
+                    'Versión ${run.processOfficialVersionSnapshot}',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                Text(
+                  'Inicio: ${DateFormat('dd/MM/yyyy HH:mm').format(run.startedAt.toLocal())}',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                OutlinedButton.icon(
+                  onPressed: state.isChangingPage || state.isRetryingAi
+                      ? null
+                      : onRetry,
+                  icon: const Icon(Icons.sync),
+                  label: const Text('Volver a consultar'),
+                ),
+              ],
+            ),
+            const Divider(height: AppSpacing.xxl),
+            Text('Estado de esta página', style: theme.textTheme.titleSmall),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'La ejecución terminó; eso no indica que todas las evidencias cumplan. Revisá los estados de cada resultado.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.lg,
+              runSpacing: AppSpacing.sm,
+              children: [
+                _CountLabel(
+                  count: reviewCount,
+                  label: 'requieren revisión',
+                  color: AppColors.warning,
+                ),
+                _CountLabel(
+                  count: compliesCount,
+                  label: 'cumplen',
+                  color: AppColors.success,
+                ),
+                _CountLabel(
+                  count: notCompliesCount,
+                  label: 'no cumplen',
+                  color: AppColors.danger,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'El estado visible de cada evidencia es el vigente. Si hubo una decisión humana, '
+              'se conserva por separado la propuesta automática.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _CountLabel extends StatelessWidget {
+  const _CountLabel({
+    required this.count,
+    required this.label,
+    required this.color,
+  });
+  final int count;
+  final String label;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: AppSpacing.xs),
+      Flexible(
+        child: Text(
+          '$count $label',
+          softWrap: true,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ),
+    ],
+  );
 }
 
 class VerificationResultTile extends StatelessWidget {
@@ -373,6 +513,9 @@ class VerificationResultTile extends StatelessWidget {
     this.isDecidingResult = false,
     this.onResolveApplicability,
     this.onDecideResult,
+    this.onRetryAi,
+    this.onLoadAiRetries,
+    this.isRetryingAi = false,
     required this.isExpanded,
     required this.onToggle,
   });
@@ -389,6 +532,10 @@ class VerificationResultTile extends StatelessWidget {
   })?
   onResolveApplicability;
   final ResultDecisionAction? onDecideResult;
+  final Future<VerificationResult> Function(String)? onRetryAi;
+  final Future<List<AiRetryAttempt>> Function(String)? onLoadAiRetries;
+  final bool isRetryingAi;
+
   final bool isExpanded;
   final VoidCallback onToggle;
 
@@ -397,111 +544,186 @@ class VerificationResultTile extends StatelessWidget {
     final theme = Theme.of(context);
     final statusTone = _resultStatusTone(result.effectiveStatus);
 
-    return Card(
+    return Card.outlined(
+      color: AppColors.surfaceWhite,
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            onTap: onToggle,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final titleAndStatus = Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            result.displayName,
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Wrap(
-                            spacing: AppSpacing.sm,
-                            runSpacing: AppSpacing.xs,
-                            children: [
-                              _LocationBadge(location: result.location),
-                              _MetaBadge(
-                                icon: Icons.category_outlined,
-                                label: result.evidenceType.label,
-                              ),
-                              if (result.subjectTicketId != null)
-                                _MetaBadge(
-                                  icon: Icons.confirmation_num_outlined,
-                                  label: 'Ticket ${result.subjectTicketId}',
-                                ),
-                              if (result
-                                  .applicability
-                                  .requiresHumanIntervention)
-                                _MetaBadge(
-                                  icon: Icons.rule_outlined,
-                                  label: 'Aplicabilidad pendiente',
-                                ),
-                            ],
-                          ),
-                          if (locationContext != null) ...[
-                            const SizedBox(height: AppSpacing.sm),
-                            _ProcessHierarchyBadge(
-                              location: result.location,
-                              contextData: locationContext!,
-                            ),
-                          ],
-                        ],
-                      );
-
-                      final status = StatusChip(
-                        label: result.effectiveStatus.label,
-                        tone: statusTone,
-                      );
-
-                      if (constraints.maxWidth < 560) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            titleAndStatus,
-                            const SizedBox(height: AppSpacing.md),
-                            status,
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: titleAndStatus),
-                          const SizedBox(width: AppSpacing.lg),
-                          status,
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          DecoratedBox(
+            key: ValueKey('result-status-bar-${result.id}'),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant.withValues(alpha: .38),
+              border: Border(
+                left: BorderSide(
+                  color: _resultStatusColor(result.effectiveStatus),
+                  width: 4,
+                ),
+              ),
+            ),
+            child: Semantics(
+              button: true,
+              expanded: isExpanded,
+              label:
+                  '${result.displayName}. Estado vigente: ${result.effectiveStatus.label}. '
+                  '${isExpanded ? 'Ocultar detalle' : 'Ver detalle'}',
+              child: InkWell(
+                onTap: onToggle,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: Text(
-                          isExpanded
-                              ? 'Ocultar fundamento'
-                              : 'Ver fundamento y referencias',
-                          style: theme.textTheme.labelLarge?.copyWith(
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final titleAndStatus = Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (locationContext?.hasActivity == true) ...[
+                                Text(
+                                  'ACTIVIDAD · ${locationContext!.activityName}',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.xs),
+                              ],
+                              Text(
+                                result.displayName,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Wrap(
+                                spacing: AppSpacing.sm,
+                                runSpacing: AppSpacing.xs,
+                                children: [
+                                  _LocationBadge(location: result.location),
+                                  _MetaBadge(
+                                    icon: Icons.category_outlined,
+                                    label: result.evidenceType.label,
+                                  ),
+                                  if (result.subjectTicketId != null)
+                                    _MetaBadge(
+                                      icon: Icons.confirmation_num_outlined,
+                                      label: 'Ticket ${result.subjectTicketId}',
+                                    ),
+                                  if (result
+                                      .applicability
+                                      .requiresHumanIntervention)
+                                    _MetaBadge(
+                                      icon: Icons.rule_outlined,
+                                      label: 'Aplicabilidad pendiente',
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Wrap(
+                                spacing: AppSpacing.sm,
+                                runSpacing: AppSpacing.xs,
+                                children: [
+                                  _MethodBadge(
+                                    icon:
+                                        result.applicability.origin ==
+                                            DecisionOrigin.aiApplicability
+                                        ? Icons.auto_awesome_outlined
+                                        : result.applicability.origin ==
+                                              DecisionOrigin.human
+                                        ? Icons.person_outline
+                                        : Icons.rule_outlined,
+                                    label: applicabilityMethodLabel(result),
+                                    isAi:
+                                        result.applicability.origin ==
+                                        DecisionOrigin.aiApplicability,
+                                  ),
+                                  _MethodBadge(
+                                    icon:
+                                        TicketAiRationale.parse(
+                                              result.rationale,
+                                            ) ==
+                                            null
+                                        ? Icons.rule_outlined
+                                        : Icons.auto_awesome_outlined,
+                                    label: resultMethodLabel(result),
+                                    isAi:
+                                        TicketAiRationale.parse(
+                                          result.rationale,
+                                        ) !=
+                                        null,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+
+                          final status = Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ESTADO VIGENTE',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              StatusChip(
+                                label: result.effectiveStatus.label,
+                                tone: statusTone,
+                              ),
+                            ],
+                          );
+
+                          if (constraints.maxWidth < 560) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                titleAndStatus,
+                                const SizedBox(height: AppSpacing.md),
+                                status,
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: titleAndStatus),
+                              const SizedBox(width: AppSpacing.lg),
+                              status,
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              isExpanded
+                                  ? 'Ocultar detalle'
+                                  : 'Ver análisis y referencias',
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Icon(
+                            isExpanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
                             color: theme.colorScheme.primary,
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Icon(
-                        isExpanded
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        color: theme.colorScheme.primary,
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -524,6 +746,9 @@ class VerificationResultTile extends StatelessWidget {
                       isDecidingResult: isDecidingResult,
                       onResolveApplicability: onResolveApplicability,
                       onDecideResult: onDecideResult,
+                      onRetryAi: onRetryAi,
+                      onLoadAiRetries: onLoadAiRetries,
+                      isRetryingAi: isRetryingAi,
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -543,6 +768,9 @@ class _ResultDetails extends StatelessWidget {
     required this.isDecidingResult,
     required this.onResolveApplicability,
     required this.onDecideResult,
+    required this.onRetryAi,
+    required this.onLoadAiRetries,
+    required this.isRetryingAi,
   });
 
   final VerificationResult result;
@@ -557,9 +785,43 @@ class _ResultDetails extends StatelessWidget {
   })?
   onResolveApplicability;
   final ResultDecisionAction? onDecideResult;
+  final Future<VerificationResult> Function(String)? onRetryAi;
+  final Future<List<AiRetryAttempt>> Function(String)? onLoadAiRetries;
+  final bool isRetryingAi;
+
+  String get _searchLabel {
+    if (result.searchStatus != EvidenceSearchStatus.notAttempted) {
+      return result.searchStatus.label;
+    }
+    return switch (result.applicability.decision) {
+      ApplicabilityDecision.notApplicable => 'No se consultó: no aplica',
+      ApplicabilityDecision.undetermined =>
+        'No se consultó: aplicabilidad pendiente',
+      _ => 'No se consultó la fuente',
+    };
+  }
+
+  String get _searchExplanation {
+    if (result.searchStatus != EvidenceSearchStatus.notAttempted) {
+      return result.searchStatus.explanation;
+    }
+    return switch (result.applicability.decision) {
+      ApplicabilityDecision.notApplicable =>
+        'La evidencia no aplica a este caso, por eso no se buscó en la fuente.',
+      ApplicabilityDecision.undetermined =>
+        'Primero debe resolverse la aplicabilidad; todavía no se consultó la fuente.',
+      _ => 'La evaluación terminó sin consultar esta fuente.',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
+    final ticketAiRationale = TicketAiRationale.parse(result.rationale);
+    final lacksCaseFacts =
+        result.evidenceType != EvidenceType.ticket &&
+        result.applicability.limitations.any(
+          (text) => text.contains('No se recibieron datos del caso'),
+        );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -572,74 +834,369 @@ class _ResultDetails extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
         ],
-        _DetailSection(title: 'Fundamento', child: Text(result.rationale)),
-        if (result.limitations.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.lg),
-          _DetailSection(
-            title: 'Limitaciones',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final limitation in result.limitations) ...[
-                  Row(
+        Align(
+          alignment: Alignment.centerRight,
+          child: VerificationCopyButton(
+            text: formatVerificationResultForCopy(result),
+            label: 'Copiar resultado completo',
+          ),
+        ),
+        if (result.evidenceType == EvidenceType.toolRecord &&
+            result.displayName.toLowerCase().contains(
+              'servicio en herramienta de tracking',
+            )) ...[
+          Text(
+            'Aquí se comprueba la existencia del proyecto Redmine vinculado al servicio. Si este registro figura en otro paso del proceso, ese uso conserva un resultado independiente.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        _ResultDetailTabs(
+          analysis: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Card.outlined(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('•  '),
-                      Expanded(child: Text(limitation)),
+                      Text(
+                        'Consulta de la fuente',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        _searchLabel,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color:
+                                  result.searchStatus ==
+                                      EvidenceSearchStatus.notFound
+                                  ? AppColors.warning
+                                  : AppColors.textPrimary,
+                            ),
+                      ),
+                      Text(_searchExplanation),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.xs),
-                ],
-              ],
-            ),
-          ),
-        ],
-        if (result.applicability.hasContextualAssessment) ...[
-          const SizedBox(height: AppSpacing.lg),
-          _ApplicabilitySection(
-            assessment: result.applicability,
-            canResolve:
-                isAdmin &&
-                locationContext?.applicabilityMode ==
-                    evidence_model.ApplicabilityMode.caseDependent &&
-                onResolveApplicability != null,
-            isAdmin: isAdmin,
-            isResolving: isResolvingApplicability || isDecidingResult,
-            onResolve: () => _openApplicabilityDialog(context),
-          ),
-        ],
-        const SizedBox(height: AppSpacing.lg),
-        _DetailSection(
-          title: 'Propuesta automática',
-          child: Row(
-            children: [
-              StatusChip(
-                label: result.proposedStatus.label,
-                tone: _resultStatusTone(result.proposedStatus),
+                ),
               ),
+              if (result.proposedStatus ==
+                      VerificationResultStatus.reviewRequired &&
+                  (result.effectiveStatus ==
+                          VerificationResultStatus.reviewRequired ||
+                      result.hasHumanStatusDecision)) ...[
+                const SizedBox(height: AppSpacing.md),
+                Card.outlined(
+                  color: AppColors.warning.withValues(alpha: 0.06),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          result.effectiveStatus ==
+                                  VerificationResultStatus.reviewRequired
+                              ? 'Por qué requiere revisión'
+                              : 'Por qué la propuesta automática requiere revisión',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          result.reviewReason.label,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(result.reviewReason.explanation),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              _DetailSection(
+                title: 'Fundamento',
+                child: SelectableText(
+                  humanizeVerificationText(
+                    ticketAiRationale?.explanation ?? result.rationale,
+                  ),
+                ),
+              ),
+              if (ticketAiRationale != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Esta interpretación del ticket fue propuesta por Gemini y pasó las reglas programadas de seguridad.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                if (ticketAiRationale.citedFields.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Campos del ticket considerados: ${ticketAiRationale.citedFields.join(', ')}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (ticketAiRationale.model != null ||
+                    ticketAiRationale.responseId != null)
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: const Text('Datos técnicos de la respuesta de IA'),
+                    children: [
+                      if (ticketAiRationale.model != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: SelectableText(
+                            'Modelo: ${ticketAiRationale.model}',
+                          ),
+                        ),
+                      if (ticketAiRationale.responseId != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: SelectableText(
+                            'ID de respuesta de Gemini: ${ticketAiRationale.responseId}',
+                          ),
+                        ),
+                    ],
+                  ),
+              ],
+              if (result.limitations.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.lg),
+                _DetailSection(
+                  title: 'Limitaciones',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final limitation in result.limitations) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('•  '),
+                            Expanded(
+                              child: SelectableText(
+                                humanizeVerificationText(limitation),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              if (result.applicability.hasContextualAssessment) ...[
+                const SizedBox(height: AppSpacing.lg),
+                _ApplicabilitySection(
+                  assessment: result.applicability,
+                  canResolve:
+                      isAdmin &&
+                      locationContext?.applicabilityMode ==
+                          evidence_model.ApplicabilityMode.caseDependent &&
+                      onResolveApplicability != null,
+                  isAdmin: isAdmin,
+                  isResolving: isResolvingApplicability || isDecidingResult,
+                  onResolve: () => _openApplicabilityDialog(context),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              Card.outlined(
+                color: AppColors.surfaceWhite,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Evaluación automática del sistema',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      StatusChip(
+                        label: result.proposedStatus.label,
+                        tone: _resultStatusTone(result.proposedStatus),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        result.applicability.requiresHumanIntervention
+                            ? 'Antes de decidir si cumple, un Administrador debe confirmar si esta evidencia aplica al caso.'
+                            : result.proposedStatus ==
+                                  VerificationResultStatus.reviewRequired
+                            ? 'El motivo concreto está indicado en «Por qué requiere revisión». Este estado no significa que la evidencia incumpla.'
+                            : 'Es la conclusión propuesta por el sistema. Si hubo una decisión humana, el estado vigente puede ser diferente.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      if (lacksCaseFacts) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        const Text(
+                          'Esta ejecución no contiene hechos del caso para volver a evaluar esta evidencia. '
+                          'Resolvé la aplicabilidad manualmente o iniciá una nueva verificación con una nota del caso.',
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              if (isAdmin &&
+                  onRetryAi != null &&
+                  (result.evidenceType == EvidenceType.ticket ||
+                      result.applicability.requiresHumanIntervention)) ...[
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    if (!lacksCaseFacts)
+                      OutlinedButton.icon(
+                        onPressed: isRetryingAi
+                            ? null
+                            : () => _retryGemini(context),
+                        icon: isRetryingAi
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.auto_awesome_outlined),
+                        label: const Text('Reintentar con Gemini'),
+                      ),
+                    if (onLoadAiRetries != null)
+                      TextButton.icon(
+                        onPressed: () => _showAiHistory(context),
+                        icon: const Icon(Icons.history),
+                        label: const Text('Historial de propuestas IA'),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          review: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isAdmin && onDecideResult != null) ...[
+                _HumanStatusReviewSection(
+                  result: result,
+                  choices: allowedHumanFinalStatuses(
+                    result,
+                    locationContext?.applicabilityMode,
+                  ),
+                  busy: isResolvingApplicability || isDecidingResult,
+                  onReview: () => _openStatusDecisionDialog(context),
+                ),
+              ],
+              if (result.humanDecisions.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.lg),
+                _HumanDecisionsSection(events: result.humanDecisions),
+              ] else if (!isAdmin) ...[
+                const Text(
+                  'No hay decisiones humanas registradas para esta evidencia.',
+                ),
+              ],
+            ],
+          ),
+          sources: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isAdmin && result.evidenceType == EvidenceType.ticket) ...[
+                _OriginalTicketObservation(
+                  runId: result.runId,
+                  resultId: result.id,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+              _EvidenceReferencesSection(references: result.evidence),
             ],
           ),
         ),
-        if (isAdmin && onDecideResult != null) ...[
-          const SizedBox(height: AppSpacing.lg),
-          _HumanStatusReviewSection(
-            result: result,
-            choices: allowedHumanFinalStatuses(
-              result,
-              locationContext?.applicabilityMode,
-            ),
-            busy: isResolvingApplicability || isDecidingResult,
-            onReview: () => _openStatusDecisionDialog(context),
-          ),
-        ],
-        if (result.humanDecisions.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.lg),
-          _HumanDecisionsSection(events: result.humanDecisions),
-        ],
-        const SizedBox(height: AppSpacing.lg),
-        _EvidenceReferencesSection(references: result.evidence),
       ],
     );
+  }
+
+  Future<void> _retryGemini(BuildContext context) async {
+    final retry = onRetryAi;
+    if (retry == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reintentar interpretación'),
+        content: Text(
+          result.evidenceType == EvidenceType.ticket
+              ? 'Se volverá a leer el ticket actual de Redmine y se consultará Gemini. '
+                    'La propuesta anterior quedará en el historial; una decisión humana no se modificará.'
+              : 'Se volverá a evaluar la aplicabilidad con los hechos registrados para esta verificación. '
+                    'Si no hay nota del caso ni tickets seleccionados, no hay información suficiente y deberás resolverla manualmente. '
+                    'La propuesta anterior quedará en el historial.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Reintentar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await retry(result.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nueva propuesta guardada en el historial.'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              safeAppFailure(
+                error,
+                fallbackMessage: 'No se pudo reintentar Gemini.',
+              ).message,
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showAiHistory(BuildContext context) async {
+    final load = onLoadAiRetries;
+    if (load == null) return;
+    try {
+      final attempts = await load(result.id);
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AiRetryHistoryDialog(attempts: attempts),
+      );
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              safeAppFailure(
+                error,
+                fallbackMessage: 'No se pudo cargar el historial de IA.',
+              ).message,
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _openApplicabilityDialog(BuildContext context) async {
@@ -681,6 +1238,50 @@ class _ResultDetails extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ResultDetailTabs extends StatefulWidget {
+  const _ResultDetailTabs({
+    required this.analysis,
+    required this.review,
+    required this.sources,
+  });
+
+  final Widget analysis;
+  final Widget review;
+  final Widget sources;
+
+  @override
+  State<_ResultDetailTabs> createState() => _ResultDetailTabsState();
+}
+
+class _ResultDetailTabsState extends State<_ResultDetailTabs> {
+  int _selected = 0;
+
+  @override
+  Widget build(BuildContext context) => DefaultTabController(
+    length: 3,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TabBar(
+          isScrollable: false,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textSecondary,
+          indicatorColor: AppColors.primary,
+          dividerColor: AppColors.border,
+          onTap: (index) => setState(() => _selected = index),
+          tabs: const [
+            Tab(text: 'Evaluación'),
+            Tab(text: 'Decisiones'),
+            Tab(text: 'Fuentes'),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        [widget.analysis, widget.review, widget.sources][_selected],
+      ],
+    ),
+  );
 }
 
 class _HumanOverrideNotice extends StatelessWidget {
@@ -775,7 +1376,7 @@ class _ApplicabilitySection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(assessment.rationale),
+            SelectableText(humanizeVerificationText(assessment.rationale)),
             if (assessment.limitations.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.sm),
               for (final limitation in assessment.limitations) ...[
@@ -783,7 +1384,11 @@ class _ApplicabilitySection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('•  '),
-                    Expanded(child: Text(limitation)),
+                    Expanded(
+                      child: SelectableText(
+                        humanizeVerificationText(limitation),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -1255,7 +1860,7 @@ class _HumanDecisionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _DetailSection(
-      title: 'Decisiones humanas previas',
+      title: 'Decisiones registradas por Administradores',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1272,7 +1877,9 @@ class _HumanDecisionsSection extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          event.decisionType.label,
+                          event.decisionType == HumanDecisionType.applicability
+                              ? 'Decisión sobre aplicabilidad'
+                              : 'Decisión sobre cumplimiento',
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         Text(
@@ -1286,15 +1893,64 @@ class _HumanDecisionsSection extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    if (event.applicabilityDecision != null)
-                      Text(
-                        'Aplicabilidad: ${event.applicabilityDecision!.label}',
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Decisión',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: AppColors.textSecondary,
                       ),
-                    if (event.finalStatus != null)
-                      Text('Estado: ${event.finalStatus!.label}'),
+                    ),
                     const SizedBox(height: AppSpacing.xs),
-                    Text(event.rationale),
+                    StatusChip(
+                      label:
+                          event.applicabilityDecision?.label ??
+                          event.finalStatus?.label ??
+                          '—',
+                      tone:
+                          event.applicabilityDecision ==
+                              HumanApplicabilityDecision.applies
+                          ? StatusTone.info
+                          : event.applicabilityDecision ==
+                                HumanApplicabilityDecision.notApplicable
+                          ? StatusTone.neutral
+                          : _resultStatusTone(
+                              event.finalStatus ??
+                                  VerificationResultStatus.unknown,
+                            ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: const BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        border: Border(
+                          left: BorderSide(color: AppColors.info, width: 3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Fundamento escrito por el Administrador',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          SelectableText(
+                            event.rationale,
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: VerificationCopyButton(
+                        text: formatHumanDecisionForCopy(event),
+                        label: 'Copiar decisión y fundamento',
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1305,6 +1961,79 @@ class _HumanDecisionsSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _OriginalTicketObservation extends ConsumerStatefulWidget {
+  const _OriginalTicketObservation({
+    required this.runId,
+    required this.resultId,
+  });
+
+  final String runId;
+  final String resultId;
+
+  @override
+  ConsumerState<_OriginalTicketObservation> createState() =>
+      _OriginalTicketObservationState();
+}
+
+class _OriginalTicketObservationState
+    extends ConsumerState<_OriginalTicketObservation> {
+  late Future<Map<String, dynamic>?> _ticket;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticket = ref
+        .read(verificationRepositoryProvider)
+        .ticketObservation(runId: widget.runId, resultId: widget.resultId);
+  }
+
+  @override
+  Widget build(BuildContext context) => _DetailSection(
+    title: 'Ticket consultado en la verificación inicial',
+    child: FutureBuilder<Map<String, dynamic>?>(
+      future: _ticket,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const LinearProgressIndicator();
+        }
+        if (snapshot.hasError) {
+          return TextButton.icon(
+            onPressed: () => setState(() {
+              _ticket = ref
+                  .read(verificationRepositoryProvider)
+                  .ticketObservation(
+                    runId: widget.runId,
+                    resultId: widget.resultId,
+                  );
+            }),
+            icon: const Icon(Icons.refresh),
+            label: const Text('No se pudo cargar el ticket. Reintentar'),
+          );
+        }
+        final ticket = snapshot.data;
+        if (ticket == null) {
+          return const Text(
+            'Esta ejecución no conservó una copia del ticket. Las ejecuciones nuevas guardan los datos leídos para su revisión.',
+          );
+        }
+        final readAt = DateTime.tryParse(
+          ticket['observedAt']?.toString() ?? '',
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (readAt != null) ...[
+              Text('Datos leídos de Redmine el ${_formatDate(readAt)}'),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            TicketSnapshotView(ticket: ticket),
+          ],
+        );
+      },
+    ),
+  );
 }
 
 class _EvidenceReferencesSection extends StatelessWidget {
@@ -1350,7 +2079,10 @@ class _EvidenceReferenceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(reference.displayName, style: theme.textTheme.titleSmall),
+            SelectableText(
+              reference.displayName,
+              style: theme.textTheme.titleSmall,
+            ),
             const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: AppSpacing.sm,
@@ -1377,9 +2109,17 @@ class _EvidenceReferenceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(
+            SelectableText(
               'Identificador externo: ${reference.externalId}',
               style: theme.textTheme.bodySmall,
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: VerificationCopyButton(
+                text:
+                    'Referencia: ${reference.displayName}\nFuente: ${reference.source.label}\nIdentificador externo: ${reference.externalId}${uri == null ? '' : '\nEnlace: $uri'}',
+                label: 'Copiar datos de la referencia',
+              ),
             ),
             if (uri != null) ...[
               const SizedBox(height: AppSpacing.sm),
@@ -1464,74 +2204,15 @@ class _LocationBadge extends StatelessWidget {
         children: [
           Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: AppSpacing.xs),
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProcessHierarchyBadge extends StatelessWidget {
-  const _ProcessHierarchyBadge({
-    required this.location,
-    required this.contextData,
-  });
-
-  final EvidenceLocation location;
-  final VerificationResultLocationContext contextData;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isActivityRecord = location == EvidenceLocation.activityRecord;
-    final background = isActivityRecord
-        ? theme.colorScheme.secondaryContainer
-        : theme.colorScheme.primaryContainer;
-    final foreground = isActivityRecord
-        ? theme.colorScheme.onSecondaryContainer
-        : theme.colorScheme.onPrimaryContainer;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadii.pill),
-      ),
-      child: Wrap(
-        spacing: AppSpacing.xs,
-        runSpacing: AppSpacing.xs,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Icon(
-            isActivityRecord
-                ? Icons.account_tree_outlined
-                : Icons.schema_outlined,
-            size: 15,
-            color: foreground,
-          ),
-          Text(
-            'Macroactividad: ${contextData.macroActivityName}',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (isActivityRecord && contextData.hasActivity)
-            Text(
-              '· Actividad: ${contextData.activityName}',
+          Flexible(
+            child: Text(
+              label,
+              softWrap: true,
               style: theme.textTheme.labelMedium?.copyWith(
-                color: foreground,
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
         ],
       ),
     );
@@ -1568,6 +2249,58 @@ class _MetaBadge extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               maxLines: 2,
               style: theme.textTheme.labelMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MethodBadge extends StatelessWidget {
+  const _MethodBadge({
+    required this.icon,
+    required this.label,
+    required this.isAi,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isAi;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = isAi ? AppColors.primary : AppColors.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: isAi
+            ? AppColors.primary.withValues(alpha: 0.08)
+            : theme.colorScheme.surfaceContainer,
+        border: Border.all(
+          color: isAi
+              ? AppColors.primary.withValues(alpha: 0.28)
+              : AppColors.border,
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              label,
+              softWrap: true,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -1839,6 +2572,14 @@ StatusTone _resultStatusTone(VerificationResultStatus status) =>
       VerificationResultStatus.notApplicable => StatusTone.neutral,
       VerificationResultStatus.unknown => StatusTone.neutral,
     };
+
+Color _resultStatusColor(VerificationResultStatus status) => switch (status) {
+  VerificationResultStatus.complies => AppColors.success,
+  VerificationResultStatus.doesNotComply => AppColors.danger,
+  VerificationResultStatus.reviewRequired => AppColors.warningAccent,
+  VerificationResultStatus.notApplicable => AppColors.textSecondary,
+  VerificationResultStatus.unknown => AppColors.textSecondary,
+};
 
 String _formatDate(DateTime date) =>
     DateFormat('dd/MM/yyyy HH:mm').format(date.toLocal());

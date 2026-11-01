@@ -48,8 +48,14 @@ class AppScaffold extends ConsumerWidget {
                       destinations: [
                         for (final destination in mobileDestinations)
                           NavigationDestination(
-                            icon: Icon(destination.icon),
-                            label: destination.label,
+                            icon: Tooltip(
+                              message: destination.label,
+                              child: Icon(destination.icon),
+                            ),
+                            label:
+                                destination.path == RouteNames.verificationsPath
+                                ? 'Verificar'
+                                : destination.label,
                           ),
                       ],
                     ),

@@ -25,6 +25,7 @@ class VerificationResultsState {
     this.isChangingPage = false,
     this.isResolvingApplicability = false,
     this.isDecidingResult = false,
+    this.isRetryingAi = false,
     this.resultsFailure,
     this.locationContext = const {},
   });
@@ -36,6 +37,7 @@ class VerificationResultsState {
   final bool isChangingPage;
   final bool isResolvingApplicability;
   final bool isDecidingResult;
+  final bool isRetryingAi;
   final AppFailure? resultsFailure;
   final Map<String, VerificationResultLocationContext> locationContext;
 
@@ -58,6 +60,7 @@ class VerificationResultsState {
     bool? isChangingPage,
     bool? isResolvingApplicability,
     bool? isDecidingResult,
+    bool? isRetryingAi,
     Object? resultsFailure = _unchanged,
     Object? locationContext = _unchanged,
   }) {
@@ -74,6 +77,7 @@ class VerificationResultsState {
       isResolvingApplicability:
           isResolvingApplicability ?? this.isResolvingApplicability,
       isDecidingResult: isDecidingResult ?? this.isDecidingResult,
+      isRetryingAi: isRetryingAi ?? this.isRetryingAi,
       resultsFailure: identical(resultsFailure, _unchanged)
           ? this.resultsFailure
           : resultsFailure as AppFailure?,
@@ -97,6 +101,7 @@ class VerificationResultsViewModel
   bool _requestInProgress = false;
   bool _applicabilityRequestInProgress = false;
   bool _statusDecisionRequestInProgress = false;
+  bool _aiRetryInProgress = false;
 
   VerificationRepository get _repository =>
       ref.read(verificationRepositoryProvider);
@@ -336,6 +341,68 @@ class VerificationResultsViewModel
         }
       }
     }
+  }
+
+  Future<VerificationResult> retryAi(String resultId) async {
+    if (ref.read(sessionProvider)?.isAdmin != true) {
+      throw const PermissionFailure(
+        'Solo un Administrador puede reintentar Gemini.',
+      );
+    }
+    final current = state.value;
+    if (current == null ||
+        current.run.status != VerificationRunStatus.completed ||
+        _aiRetryInProgress ||
+        _applicabilityRequestInProgress ||
+        _statusDecisionRequestInProgress) {
+      throw const ConflictFailure(
+        'La verificación está ocupada. Intentá de nuevo.',
+      );
+    }
+    final matches = current.items.where((item) => item.id == resultId).toList();
+    if (matches.length != 1) {
+      throw const ConflictFailure('El resultado ya no está en esta página.');
+    }
+    final result = matches.single;
+    _aiRetryInProgress = true;
+    state = AsyncData(current.copyWith(isRetryingAi: true));
+    try {
+      final updated = await _repository.retryAi(
+        runId: runId,
+        resultId: resultId,
+        revision: result.revision,
+      );
+      if (updated.id != result.id || updated.runId != runId) {
+        throw const UnexpectedFailure('Gemini devolvió otro resultado.');
+      }
+      if (ref.mounted) {
+        final latest = state.value;
+        if (latest != null) {
+          state = AsyncData(
+            latest.copyWith(
+              items: [
+                for (final item in latest.items)
+                  if (item.id == resultId) updated else item,
+              ],
+              isRetryingAi: false,
+            ),
+          );
+        }
+      }
+      return updated;
+    } on ConflictFailure {
+      await retry();
+      rethrow;
+    } finally {
+      _aiRetryInProgress = false;
+      if (ref.mounted && state.value?.isRetryingAi == true) {
+        state = AsyncData(state.requireValue.copyWith(isRetryingAi: false));
+      }
+    }
+  }
+
+  Future<List<AiRetryAttempt>> loadAiRetries(String resultId) {
+    return _repository.listAiRetries(runId: runId, resultId: resultId);
   }
 
   Future<void> goToPage(int page) async {
