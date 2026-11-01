@@ -11,6 +11,7 @@ import '../../services/model/service_models.dart';
 import '../model/new_verification_models.dart';
 import '../model/verification_history_models.dart';
 import '../model/verification_result_models.dart';
+import '../model/verification_work_item.dart';
 import 'dto/verification_history_dtos.dart';
 import 'dto/verification_result_dtos.dart';
 import 'verification_repository.dart';
@@ -144,6 +145,40 @@ class VerificationRepositoryImpl implements VerificationRepository {
   }
 
   @override
+  Future<VerificationResult> retryAi({
+    required String runId,
+    required String resultId,
+    required int revision,
+  }) async {
+    try {
+      final response = await _api.post(
+        '/verifications/$runId/results/$resultId/ai-retry',
+        data: {'revision': revision},
+      );
+      return VerificationResultDto.fromJson(_map(response.data)).toModel();
+    } on DioException catch (error) {
+      throw _mapper.map(error);
+    }
+  }
+
+  @override
+  Future<List<AiRetryAttempt>> listAiRetries({
+    required String runId,
+    required String resultId,
+  }) async {
+    try {
+      final response = await _api.get(
+        '/verifications/$runId/results/$resultId/ai-retries',
+      );
+      return (response.data as List)
+          .map((item) => AiRetryAttempt.fromJson(_map(item)))
+          .toList();
+    } on DioException catch (error) {
+      throw _mapper.map(error);
+    }
+  }
+
+  @override
   Future<VerificationRun> getVerification(String runId) async {
     try {
       final response = await _api.get('/verifications/$runId');
@@ -160,6 +195,47 @@ class VerificationRepositoryImpl implements VerificationRepository {
     } catch (_) {
       throw const UnexpectedFailure(
         'La respuesta de la ejecución no tiene un formato válido.',
+      );
+    }
+  }
+
+  @override
+  Future<List<VerificationWorkItem>> listWorkItems(String runId) async {
+    try {
+      final response = await _api.get('/verifications/$runId/work-items');
+      return (response.data as List)
+          .map((item) => VerificationWorkItem.fromJson(_map(item)))
+          .toList();
+    } on DioException catch (error) {
+      throw _mapper.map(error);
+    } on AppFailure {
+      rethrow;
+    } catch (_) {
+      throw const UnexpectedFailure(
+        'No se pudo interpretar el estado de las evidencias.',
+      );
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> ticketObservation({
+    required String runId,
+    required String resultId,
+  }) async {
+    try {
+      final response = await _api.get(
+        '/verifications/$runId/results/$resultId/ticket-observation',
+      );
+      final body = _map(response.data);
+      return {..._map(body['ticket']), 'observedAt': body['observedAt']};
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) return null;
+      throw _mapper.map(error);
+    } on AppFailure {
+      rethrow;
+    } catch (_) {
+      throw const UnexpectedFailure(
+        'No se pudo interpretar el ticket observado.',
       );
     }
   }

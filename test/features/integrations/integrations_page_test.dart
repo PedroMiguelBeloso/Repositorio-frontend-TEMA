@@ -13,7 +13,7 @@ import 'package:proyecto_tema_frontend/features/integrations/model/integration_s
 import 'package:proyecto_tema_frontend/features/integrations/view/integrations_page.dart';
 
 void main() {
-  testWidgets('shows both resolved sources and their Spanish statuses', (
+  testWidgets('shows all three sources and their Spanish statuses', (
     tester,
   ) async {
     final repository = _FakeIntegrationsRepository(statuses: _statuses);
@@ -25,10 +25,11 @@ void main() {
 
     expect(find.text('Google Drive'), findsOneWidget);
     expect(find.text('Redmine'), findsOneWidget);
+    expect(find.text('Gemini'), findsOneWidget);
     expect(find.text('Disponible'), findsOneWidget);
     expect(find.text('Error de autenticación'), findsOneWidget);
-    expect(find.text('Verificar de nuevo'), findsOneWidget);
-    expect(find.textContaining('Última comprobación:'), findsNWidgets(2));
+    expect(find.text('Probar conexiones de nuevo'), findsOneWidget);
+    expect(find.textContaining('Última comprobación:'), findsNWidgets(3));
     expect(repository.testCalls, 1);
   });
 
@@ -45,11 +46,11 @@ void main() {
 
     await tester.pumpWidget(_subject(container));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Verificar de nuevo'));
+    await tester.tap(find.text('Probar conexiones de nuevo'));
     await tester.pump();
 
     final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Verificar de nuevo'),
+      find.widgetWithText(FilledButton, 'Probar conexiones de nuevo'),
     );
     expect(button.onPressed, isNull);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -59,7 +60,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sin permiso para consultar'), findsOneWidget);
-    expect(find.text('Disponible'), findsOneWidget);
+    expect(find.text('Disponible'), findsNWidgets(2));
   });
 
   testWidgets('failed test keeps statuses and shows a safe error', (
@@ -75,7 +76,7 @@ void main() {
 
     await tester.pumpWidget(_subject(container));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Verificar de nuevo'));
+    await tester.tap(find.text('Probar conexiones de nuevo'));
     await tester.pump();
     completion.completeError(const NetworkFailure('No se pudo conectar.'));
     await tester.pumpAndSettle();
@@ -118,7 +119,7 @@ void main() {
     await tester.pumpWidget(_subject(container));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sin información'), findsOneWidget);
+    expect(find.text('Sin información'), findsNWidgets(2));
     expect(find.textContaining('Última comprobación:'), findsOneWidget);
   });
 
@@ -140,6 +141,7 @@ void main() {
 
       expect(find.text('Google Drive'), findsOneWidget);
       expect(find.text('Redmine'), findsOneWidget);
+      expect(find.text('Gemini'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -170,6 +172,11 @@ final _statuses = [
     state: IntegrationState.authError,
     checkedAt: DateTime.utc(2026, 10, 1, 12, 30),
   ),
+  IntegrationStatus(
+    source: IntegrationSource.gemini,
+    state: IntegrationState.notConfigured,
+    checkedAt: DateTime.utc(2026, 10, 1, 12, 30),
+  ),
 ];
 
 final _updatedStatuses = [
@@ -180,6 +187,11 @@ final _updatedStatuses = [
   ),
   IntegrationStatus(
     source: IntegrationSource.redmine,
+    state: IntegrationState.available,
+    checkedAt: DateTime.utc(2026, 10, 1, 13),
+  ),
+  IntegrationStatus(
+    source: IntegrationSource.gemini,
     state: IntegrationState.available,
     checkedAt: DateTime.utc(2026, 10, 1, 13),
   ),

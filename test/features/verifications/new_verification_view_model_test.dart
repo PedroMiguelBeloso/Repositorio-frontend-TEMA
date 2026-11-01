@@ -75,6 +75,7 @@ void main() {
     final state = container.read(newVerificationViewModelProvider).requireValue;
     expect(state.preview, isNull);
     expect(state.selectedTickets, isEmpty);
+    expect(state.knownTickets, isEmpty);
     expect(state.canPreview, isFalse);
     vm.selectMacroActivity('macro-1');
     expect(
@@ -82,6 +83,41 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'selected ticket names remain available after filtering and paging',
+    () async {
+      final repository = _FakeRepository();
+      final container = ProviderContainer(
+        overrides: [
+          verificationRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        newVerificationViewModelProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      await container.read(newVerificationViewModelProvider.future);
+      final vm = container.read(newVerificationViewModelProvider.notifier);
+      await vm.selectService('service-1');
+      vm.selectProcess('version-1');
+      await vm.loadPreview();
+      vm.toggleTicket(_group, '204');
+
+      await vm.searchTickets('otra');
+      var state = container.read(newVerificationViewModelProvider).requireValue;
+      expect(state.selectedTickets[_group.id], {'204'});
+      expect(state.knownTickets['204']?.subject, 'Primer ticket');
+      expect(state.tickets?.items.single.id, '205');
+
+      await vm.searchTickets('', page: 1);
+      state = container.read(newVerificationViewModelProvider).requireValue;
+      expect(state.selectedTickets[_group.id], {'204'});
+      expect(state.knownTickets['204']?.subject, 'Primer ticket');
+    },
+  );
 
   test(
     'a second start call is ignored while the first request is pending',
@@ -136,7 +172,7 @@ final _service = Service(
   updatedAt: DateTime.utc(2026),
 );
 
-class _FakeRepository implements VerificationRepository {
+class _FakeRepository extends VerificationRepository {
   @override
   Future<VerificationResult> decideResult({
     required String runId,
@@ -228,6 +264,18 @@ class _FakeRepository implements VerificationRepository {
     required int page,
   }) async {
     ticketQueries.add(query);
+    if (query == 'otra' || page == 1) {
+      return const TicketPage(
+        items: [
+          TicketSummary(
+            id: '205',
+            subject: 'Segundo ticket',
+            status: 'Abierto',
+          ),
+        ],
+        page: PageInfo(page: 1, size: 1, totalElements: 2, totalPages: 2),
+      );
+    }
     return const TicketPage(
       items: [
         TicketSummary(id: '204', subject: 'Primer ticket', status: 'Abierto'),

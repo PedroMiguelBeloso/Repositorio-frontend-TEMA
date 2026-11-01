@@ -333,8 +333,8 @@ void main() {
     container.read(appRouterProvider).go(RouteNames.integrationsPath);
     await tester.pumpAndSettle();
 
-    expect(find.text('Verificar de nuevo'), findsOneWidget);
-    expect(find.text('Sin información'), findsNWidgets(2));
+    expect(find.text('Probar conexiones de nuevo'), findsOneWidget);
+    expect(find.text('Sin información'), findsNWidgets(3));
     expect(find.text('Integraciones'), findsNWidgets(2));
   });
 
@@ -425,6 +425,27 @@ void main() {
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationRail), findsNothing);
+    expect(find.text('Verificar'), findsOneWidget);
+    expect(find.byTooltip('Verificaciones'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('verification navigation fits at 390 px with larger text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.binding.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(
+      tester.binding.platformDispatcher.clearTextScaleFactorTestValue,
+    );
+
+    await _pumpApp(tester, session: const Session(role: UserRole.reader));
+
+    expect(find.text('Verificar'), findsOneWidget);
+    expect(find.byTooltip('Verificaciones'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -552,7 +573,7 @@ class _TestVerificationHistoryViewModel extends VerificationHistoryViewModel {
   );
 }
 
-class _TestVerificationRepository implements VerificationRepository {
+class _TestVerificationRepository extends VerificationRepository {
   @override
   Future<VerificationResult> decideResult({
     required String runId,

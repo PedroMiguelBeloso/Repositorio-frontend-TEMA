@@ -23,24 +23,25 @@ class VerificationHistoryPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Verificaciones')),
-      body: AsyncContent<VerificationHistoryState>(
-        value: history,
-        errorMessage: 'No se pudo cargar el historial de verificaciones.',
-        onRetry: () => ref
-            .read(verificationHistoryViewModelProvider.notifier)
-            .retry(),
-        builder: (data) => _HistoryContent(
-          state: data,
-          isAdmin: isAdmin,
-          onRefresh: ref
-              .read(verificationHistoryViewModelProvider.notifier)
-              .refresh,
-          onServiceChanged: ref
-              .read(verificationHistoryViewModelProvider.notifier)
-              .selectService,
-          onPageChanged: ref
-              .read(verificationHistoryViewModelProvider.notifier)
-              .goToPage,
+      body: SelectionArea(
+        child: AsyncContent<VerificationHistoryState>(
+          value: history,
+          errorMessage: 'No se pudo cargar el historial de verificaciones.',
+          onRetry: () =>
+              ref.read(verificationHistoryViewModelProvider.notifier).retry(),
+          builder: (data) => _HistoryContent(
+            state: data,
+            isAdmin: isAdmin,
+            onRefresh: ref
+                .read(verificationHistoryViewModelProvider.notifier)
+                .refresh,
+            onServiceChanged: ref
+                .read(verificationHistoryViewModelProvider.notifier)
+                .selectService,
+            onPageChanged: ref
+                .read(verificationHistoryViewModelProvider.notifier)
+                .goToPage,
+          ),
         ),
       ),
     );
@@ -169,7 +170,7 @@ class _HistoryHeader extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh),
-              label: const Text('Actualizar'),
+              label: const Text('Recargar historial'),
             ),
             if (isAdmin)
               FilledButton.icon(
@@ -184,7 +185,10 @@ class _HistoryHeader extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Historial de ejecuciones', style: theme.textTheme.headlineSmall),
+              Text(
+                'Historial de ejecuciones',
+                style: theme.textTheme.headlineSmall,
+              ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Consultá ejecuciones anteriores, su estado y el progreso técnico '
@@ -204,7 +208,10 @@ class _HistoryHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Historial de ejecuciones', style: theme.textTheme.headlineSmall),
+                  Text(
+                    'Historial de ejecuciones',
+                    style: theme.textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     'Consultá ejecuciones anteriores, su estado y el progreso técnico '
@@ -256,16 +263,13 @@ class _ServiceFilter extends StatelessWidget {
               child: Text('Todos los servicios'),
             ),
             for (final service in services)
-              DropdownMenuItem(
-                value: service.id,
-                child: Text(service.name),
-              ),
+              DropdownMenuItem(value: service.id, child: Text(service.name)),
           ],
           onChanged: isDisabled
               ? null
               : (value) => onChanged(
-                    value == null || value == _allServicesValue ? null : value,
-                  ),
+                  value == null || value == _allServicesValue ? null : value,
+                ),
         ),
       ),
     );
@@ -304,10 +308,15 @@ class _VerificationRunCard extends StatelessWidget {
                     color: theme.colorScheme.primary,
                   ),
                   Text(
-                    DateFormat('dd/MM/yyyy HH:mm').format(run.startedAt.toLocal()),
+                    DateFormat(
+                      'dd/MM/yyyy HH:mm',
+                    ).format(run.startedAt.toLocal()),
                     style: theme.textTheme.titleMedium,
                   ),
-                  StatusChip(label: run.status.label, tone: _statusTone(run.status)),
+                  StatusChip(
+                    label: run.status.label,
+                    tone: _statusTone(run.status),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -365,7 +374,11 @@ class _VerificationRunCard extends StatelessWidget {
 }
 
 class _RunDetailsRow extends StatelessWidget {
-  const _RunDetailsRow({required this.service, required this.process, required this.run});
+  const _RunDetailsRow({
+    required this.service,
+    required this.process,
+    required this.run,
+  });
 
   final Service? service;
   final ServiceProcess? process;
@@ -379,7 +392,10 @@ class _RunDetailsRow extends StatelessWidget {
         Expanded(
           child: _DetailField(
             label: 'Servicio',
-            value: run.serviceNameSnapshot ?? service?.name ?? 'ID de servicio: ${run.serviceId}',
+            value:
+                run.serviceNameSnapshot ??
+                service?.name ??
+                'ID de servicio: ${run.serviceId}',
           ),
         ),
         const SizedBox(width: AppSpacing.xl),
@@ -389,8 +405,8 @@ class _RunDetailsRow extends StatelessWidget {
             value: run.processNameSnapshot != null
                 ? '${run.processNameSnapshot} · versión ${run.processOfficialVersionSnapshot ?? "—"}'
                 : process == null
-                    ? 'ID de versión: ${run.processVersionId}'
-                    : '${process!.processName} · versión ${process!.officialVersion}',
+                ? 'ID de versión: ${run.processVersionId}'
+                : '${process!.processName} · versión ${process!.officialVersion}',
           ),
         ),
         const SizedBox(width: AppSpacing.xl),
@@ -398,7 +414,8 @@ class _RunDetailsRow extends StatelessWidget {
           child: _DetailField(
             label: 'Alcance',
             value: run.macroActivityNameSnapshot == null
-                ? run.scope.label : 'Macroactividad: ${run.macroActivityNameSnapshot}',
+                ? run.scope.label
+                : 'Macroactividad: ${run.macroActivityNameSnapshot}',
           ),
         ),
       ],
@@ -407,7 +424,11 @@ class _RunDetailsRow extends StatelessWidget {
 }
 
 class _RunDetailsColumn extends StatelessWidget {
-  const _RunDetailsColumn({required this.service, required this.process, required this.run});
+  const _RunDetailsColumn({
+    required this.service,
+    required this.process,
+    required this.run,
+  });
 
   final Service? service;
   final ServiceProcess? process;
@@ -420,7 +441,10 @@ class _RunDetailsColumn extends StatelessWidget {
       children: [
         _DetailField(
           label: 'Servicio',
-          value: run.serviceNameSnapshot ?? service?.name ?? 'ID de servicio: ${run.serviceId}',
+          value:
+              run.serviceNameSnapshot ??
+              service?.name ??
+              'ID de servicio: ${run.serviceId}',
         ),
         const SizedBox(height: AppSpacing.md),
         _DetailField(
@@ -428,12 +452,16 @@ class _RunDetailsColumn extends StatelessWidget {
           value: run.processNameSnapshot != null
               ? '${run.processNameSnapshot} · versión ${run.processOfficialVersionSnapshot ?? "—"}'
               : process == null
-                  ? 'ID de versión: ${run.processVersionId}'
-                  : '${process!.processName} · versión ${process!.officialVersion}',
+              ? 'ID de versión: ${run.processVersionId}'
+              : '${process!.processName} · versión ${process!.officialVersion}',
         ),
         const SizedBox(height: AppSpacing.md),
-        _DetailField(label: 'Alcance', value: run.macroActivityNameSnapshot == null
-            ? run.scope.label : 'Macroactividad: ${run.macroActivityNameSnapshot}'),
+        _DetailField(
+          label: 'Alcance',
+          value: run.macroActivityNameSnapshot == null
+              ? run.scope.label
+              : 'Macroactividad: ${run.macroActivityNameSnapshot}',
+        ),
       ],
     );
   }
@@ -497,7 +525,10 @@ class _ProgressSection extends StatelessWidget {
         Semantics(
           label: 'Progreso técnico ${run.progress.fractionLabel}',
           value: '${(run.progress.fraction * 100).round()} por ciento',
-          child: LinearProgressIndicator(value: run.progress.fraction, minHeight: 8),
+          child: LinearProgressIndicator(
+            value: run.progress.fraction,
+            minHeight: 8,
+          ),
         ),
       ],
     );
@@ -505,10 +536,7 @@ class _ProgressSection extends StatelessWidget {
 }
 
 class _Pagination extends StatelessWidget {
-  const _Pagination({
-    required this.page,
-    required this.onPageChanged,
-  });
+  const _Pagination({required this.page, required this.onPageChanged});
 
   final PageInfo page;
   final ValueChanged<int> onPageChanged;
@@ -523,9 +551,7 @@ class _Pagination extends StatelessWidget {
         IconButton(
           key: const ValueKey('verification-history-previous-page'),
           tooltip: 'Página anterior',
-          onPressed: page.page > 0
-              ? () => onPageChanged(page.page - 1)
-              : null,
+          onPressed: page.page > 0 ? () => onPageChanged(page.page - 1) : null,
           icon: const Icon(Icons.chevron_left),
         ),
         IconButton(
@@ -585,10 +611,10 @@ class _RefreshFailureBanner extends StatelessWidget {
 }
 
 StatusTone _statusTone(VerificationRunStatus status) => switch (status) {
-      VerificationRunStatus.queued => StatusTone.warning,
-      VerificationRunStatus.running => StatusTone.info,
-      // COMPLETED is technical completion, not compliance success.
-      VerificationRunStatus.completed => StatusTone.info,
-      VerificationRunStatus.failed => StatusTone.danger,
-      VerificationRunStatus.unknown => StatusTone.neutral,
-    };
+  VerificationRunStatus.queued => StatusTone.warning,
+  VerificationRunStatus.running => StatusTone.info,
+  // COMPLETED is technical completion, not compliance success.
+  VerificationRunStatus.completed => StatusTone.info,
+  VerificationRunStatus.failed => StatusTone.danger,
+  VerificationRunStatus.unknown => StatusTone.neutral,
+};

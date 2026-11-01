@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../services/model/service_models.dart';
 import '../data/verification_repository_impl.dart';
+import 'verification_history_view_model.dart';
 import '../model/new_verification_models.dart';
 
 const _unchanged = Object();
@@ -20,6 +21,7 @@ class NewVerificationState {
     this.tickets,
     this.ticketQuery = '',
     this.selectedTickets = const {},
+    this.knownTickets = const {},
     this.isLoadingProcesses = false,
     this.isLoadingPreview = false,
     this.isLoadingTickets = false,
@@ -38,6 +40,9 @@ class NewVerificationState {
   final TicketPage? tickets;
   final String ticketQuery;
   final Map<String, Set<String>> selectedTickets;
+
+  /// Tickets already seen in search results, retained across pages and filters.
+  final Map<String, TicketSummary> knownTickets;
   final bool isLoadingProcesses;
   final bool isLoadingPreview;
   final bool isLoadingTickets;
@@ -95,6 +100,7 @@ class NewVerificationState {
     Object? tickets = _unchanged,
     String? ticketQuery,
     Map<String, Set<String>>? selectedTickets,
+    Map<String, TicketSummary>? knownTickets,
     bool? isLoadingProcesses,
     bool? isLoadingPreview,
     bool? isLoadingTickets,
@@ -122,6 +128,7 @@ class NewVerificationState {
         : tickets as TicketPage?,
     ticketQuery: ticketQuery ?? this.ticketQuery,
     selectedTickets: selectedTickets ?? this.selectedTickets,
+    knownTickets: knownTickets ?? this.knownTickets,
     isLoadingProcesses: isLoadingProcesses ?? this.isLoadingProcesses,
     isLoadingPreview: isLoadingPreview ?? this.isLoadingPreview,
     isLoadingTickets: isLoadingTickets ?? this.isLoadingTickets,
@@ -168,6 +175,7 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
         preview: null,
         tickets: null,
         selectedTickets: const {},
+        knownTickets: const {},
         isLoadingProcesses: id != null,
         isLoadingPreview: false,
         isLoadingTickets: false,
@@ -211,6 +219,7 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
         preview: null,
         tickets: null,
         selectedTickets: const {},
+        knownTickets: const {},
         isLoadingPreview: false,
         isLoadingTickets: false,
         actionFailure: null,
@@ -229,6 +238,7 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
         preview: null,
         tickets: null,
         selectedTickets: const {},
+        knownTickets: const {},
         isLoadingPreview: false,
         isLoadingTickets: false,
         actionFailure: null,
@@ -246,6 +256,7 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
         preview: null,
         tickets: null,
         selectedTickets: const {},
+        knownTickets: const {},
         isLoadingPreview: false,
         isLoadingTickets: false,
         actionFailure: null,
@@ -263,6 +274,7 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
         preview: null,
         tickets: null,
         selectedTickets: const {},
+        knownTickets: const {},
         isLoadingPreview: false,
         isLoadingTickets: false,
         actionFailure: null,
@@ -280,6 +292,7 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
         preview: null,
         tickets: null,
         selectedTickets: const {},
+        knownTickets: const {},
         actionFailure: null,
       ),
     );
@@ -336,7 +349,14 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
         return;
       }
       state = AsyncData(
-        state.requireValue.copyWith(tickets: tickets, isLoadingTickets: false),
+        state.requireValue.copyWith(
+          tickets: tickets,
+          knownTickets: {
+            ...state.requireValue.knownTickets,
+            for (final ticket in tickets.items) ticket.id: ticket,
+          },
+          isLoadingTickets: false,
+        ),
       );
     } catch (error) {
       if (!ref.mounted ||
@@ -386,6 +406,7 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
             current.note.trim(),
             current.selectedTickets,
           );
+      await ref.read(verificationHistoryViewModelProvider.notifier).refresh();
       return id;
     } catch (error) {
       if (ref.mounted) {
@@ -398,6 +419,7 @@ class NewVerificationViewModel extends AsyncNotifier<NewVerificationState> {
             preview: failure is ConflictFailure ? null : _unchanged,
             tickets: failure is ConflictFailure ? null : _unchanged,
             selectedTickets: failure is ConflictFailure ? const {} : null,
+            knownTickets: failure is ConflictFailure ? const {} : null,
             actionFailure: failure,
           ),
         );

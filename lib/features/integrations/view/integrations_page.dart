@@ -42,12 +42,11 @@ class IntegrationsPage extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Estado general de las conexiones con Google Drive y Redmine. '
-            'La disponibilidad no confirma el acceso a carpetas o proyectos '
-            'configurados por servicio.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            'Pruebas de lectura de Google Drive y Redmine, y una generación mínima '
+            'con Gemini. La disponibilidad general no confirma el acceso a una '
+            'carpeta o proyecto concreto de un servicio.',
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.xl),
           Expanded(
@@ -77,27 +76,21 @@ class _IntegrationContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cards = [
-          _statusCard(IntegrationSource.drive),
-          _statusCard(IntegrationSource.redmine),
-        ];
-        final cardLayout = constraints.maxWidth >= 700
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: cards[0]),
-                  const SizedBox(width: AppSpacing.lg),
-                  Expanded(child: cards[1]),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  cards[0],
-                  const SizedBox(height: AppSpacing.lg),
-                  cards[1],
-                ],
-              );
+        final columns = constraints.maxWidth >= 1080
+            ? 3
+            : constraints.maxWidth >= 700
+            ? 2
+            : 1;
+        final cardWidth =
+            (constraints.maxWidth - AppSpacing.lg * (columns - 1)) / columns;
+        final cardLayout = Wrap(
+          spacing: AppSpacing.lg,
+          runSpacing: AppSpacing.lg,
+          children: [
+            for (final source in IntegrationSource.values)
+              SizedBox(width: cardWidth, child: _statusCard(source)),
+          ],
+        );
 
         return SingleChildScrollView(
           child: Column(
@@ -113,7 +106,7 @@ class _IntegrationContent extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.sync),
-                label: const Text('Verificar de nuevo'),
+                label: const Text('Probar conexiones de nuevo'),
               ),
             ],
           ),
@@ -141,9 +134,8 @@ class _IntegrationContent extends StatelessWidget {
     sourceLabel: source.label,
     statusLabel: status.state.label,
     tone: status.state.tone,
-    checkedAtLabel: DateFormat(
-      'dd/MM/yyyy HH:mm',
-    ).format(status.checkedAt.toLocal()),
+    checkedAtLabel: DateFormat('dd/MM/yyyy HH:mm')
+        .format(status.checkedAt.toLocal()),
     message: status.message,
   );
 }

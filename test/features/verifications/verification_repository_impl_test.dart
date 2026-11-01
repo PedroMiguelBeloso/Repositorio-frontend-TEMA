@@ -165,6 +165,41 @@ void main() {
     expect(run.finishedAt, isNull);
   });
 
+  test(
+    'loads live evidence progress and the restricted initial ticket copy',
+    () async {
+      final adapter = _VerificationAdapter();
+      final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
+        ..httpClientAdapter = adapter;
+      final client = ApiClient(dio);
+      final repository = VerificationRepositoryImpl(
+        client,
+        ServiceRepositoryImpl(client),
+      );
+
+      final workItems = await repository.listWorkItems('run-detail');
+      expect(
+        adapter.workItemsPath,
+        '/api/v1/verifications/run-detail/work-items',
+      );
+      expect(workItems, hasLength(2));
+      expect(workItems.first.searchStatus, 'IN_PROGRESS');
+      expect(workItems.last.searchStatus, 'NOT_ATTEMPTED');
+
+      final observed = await repository.ticketObservation(
+        runId: 'run-detail',
+        resultId: 'result-204',
+      );
+      expect(
+        adapter.observationPath,
+        '/api/v1/verifications/run-detail/results/result-204/ticket-observation',
+      );
+      expect(observed?['subject'], 'Solicitud de cambio');
+      expect(observed?['observedAt'], '2026-10-26T12:00:00Z');
+      expect((observed?['customFields'] as List).single['value'], 'Alta');
+    },
+  );
+
   test('maps a missing run to an explicit not-found message', () async {
     final adapter = _VerificationAdapter()..runNotFound = true;
     final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'))
@@ -314,6 +349,8 @@ class _VerificationAdapter implements HttpClientAdapter {
   Map<String, dynamic>? startBody;
   Map<String, dynamic>? historyQueryParameters;
   String? detailPath;
+  String? workItemsPath;
+  String? observationPath;
   String? resultsPath;
   Map<String, dynamic>? resultsQueryParameters;
   bool runNotFound = false;
@@ -332,6 +369,39 @@ class _VerificationAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final path = options.uri.path;
+    if (path.endsWith('/work-items') && options.method == 'GET') {
+      workItemsPath = path;
+      return _response([
+        {
+          'expectationId': 'expectation-1',
+          'displayName': 'Ticket actualizado',
+          'subjectTicketId': '204',
+          'searchStatus': 'IN_PROGRESS',
+          'resultStatus': null,
+        },
+        {
+          'expectationId': 'expectation-2',
+          'displayName': 'Acta de cierre',
+          'subjectTicketId': null,
+          'searchStatus': 'NOT_ATTEMPTED',
+          'resultStatus': null,
+        },
+      ], 200);
+    }
+    if (path.endsWith('/ticket-observation') && options.method == 'GET') {
+      observationPath = path;
+      return _response({
+        'observedAt': '2026-10-26T12:00:00Z',
+        'ticket': {
+          'id': '204',
+          'subject': 'Solicitud de cambio',
+          'customFields': [
+            {'name': 'Prioridad', 'value': 'Alta'},
+          ],
+          'journals': [],
+        },
+      }, 200);
+    }
     if (path.endsWith('/verifications/preview')) {
       previewBody = Map<String, dynamic>.from(options.data as Map);
       return _response({

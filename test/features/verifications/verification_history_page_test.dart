@@ -447,7 +447,7 @@ class _TestSessionNotifier extends SessionNotifier {
   Session? build() => initialSession;
 }
 
-class _HistoryRepository implements VerificationRepository {
+class _HistoryRepository extends VerificationRepository {
   @override
   Future<VerificationResult> decideResult({
     required String runId,

@@ -523,6 +523,44 @@ void main() {
       'GET results page=1 size=20',
     ]);
   });
+
+  test(
+    'Gemini retry replaces only the requested proposal using its revision',
+    () async {
+      final repository = _ResultsRepository(
+        run: _run(VerificationRunStatus.completed),
+        pages: {
+          0: _page(0, ['result-1', 'result-2'], totalPages: 1),
+        },
+      );
+      final container = _createContainer(repository, 'run-1', admin: true);
+      addTearDown(container.dispose);
+      await container.read(
+        verificationResultsViewModelProvider('run-1').future,
+      );
+      final viewModel = container.read(
+        verificationResultsViewModelProvider('run-1').notifier,
+      );
+
+      await viewModel.retryAi('result-1');
+
+      final state = container
+          .read(verificationResultsViewModelProvider('run-1'))
+          .requireValue;
+      expect(repository.aiRetryResultIds, ['result-1']);
+      expect(repository.aiRetryRevision, 0);
+      expect(
+        state.items.first.proposedStatus,
+        VerificationResultStatus.doesNotComply,
+      );
+      expect(state.items.first.revision, 1);
+      expect(
+        state.items.last.proposedStatus,
+        VerificationResultStatus.complies,
+      );
+      expect(state.isRetryingAi, isFalse);
+    },
+  );
 }
 
 ProviderContainer _createContainer(
@@ -653,7 +691,37 @@ class _AdminSessionNotifier extends SessionNotifier {
   Session? build() => const Session(role: UserRole.administrator);
 }
 
-class _ResultsRepository implements VerificationRepository {
+class _ResultsRepository extends VerificationRepository {
+  @override
+  Future<VerificationResult> retryAi({
+    required String runId,
+    required String resultId,
+    required int revision,
+  }) async {
+    aiRetryResultIds.add(resultId);
+    aiRetryRevision = revision;
+    final original = pages[0]!.items.firstWhere((item) => item.id == resultId);
+    return VerificationResult(
+      id: original.id,
+      runId: original.runId,
+      expectationId: original.expectationId,
+      macroActivityId: original.macroActivityId,
+      activityId: original.activityId,
+      displayName: original.displayName,
+      evidenceType: original.evidenceType,
+      location: original.location,
+      subjectTicketId: original.subjectTicketId,
+      applicability: original.applicability,
+      proposedStatus: VerificationResultStatus.doesNotComply,
+      effectiveStatus: VerificationResultStatus.doesNotComply,
+      rationale: 'Nueva lectura de Redmine.',
+      limitations: const [],
+      evidence: original.evidence,
+      humanDecisions: original.humanDecisions,
+      revision: revision + 1,
+    );
+  }
+
   @override
   Future<VerificationResult> decideResult({
     required String runId,
@@ -766,6 +834,8 @@ class _ResultsRepository implements VerificationRepository {
   int? resolvedRevision;
   String? resolvedRationale;
   final List<String> statusDecisionResultIds = [];
+  final List<String> aiRetryResultIds = [];
+  int? aiRetryRevision;
   int? statusDecisionRevision;
   String? statusDecisionRationale;
 

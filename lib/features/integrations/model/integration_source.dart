@@ -1,6 +1,7 @@
 enum IntegrationSource {
   drive('DRIVE', 'Google Drive'),
-  redmine('REDMINE', 'Redmine');
+  redmine('REDMINE', 'Redmine'),
+  gemini('GEMINI', 'Gemini');
 
   const IntegrationSource(this.apiValue, this.label);
 

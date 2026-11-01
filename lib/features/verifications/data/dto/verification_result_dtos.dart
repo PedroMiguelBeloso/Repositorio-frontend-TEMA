@@ -27,10 +27,8 @@ class VerificationResultPageDto {
     );
   }
 
-  PagedResult<VerificationResult> toModel() => PagedResult(
-        items: items,
-        page: page.toModel(),
-      );
+  PagedResult<VerificationResult> toModel() =>
+      PagedResult(items: items, page: page.toModel());
 }
 
 class VerificationResultDto {
@@ -47,6 +45,8 @@ class VerificationResultDto {
     required this.applicability,
     required this.proposedStatus,
     required this.effectiveStatus,
+    required this.reviewReason,
+    required this.searchStatus,
     required this.rationale,
     required this.limitations,
     required this.evidence,
@@ -66,6 +66,8 @@ class VerificationResultDto {
   final ApplicabilityAssessment applicability;
   final VerificationResultStatus proposedStatus;
   final VerificationResultStatus effectiveStatus;
+  final ReviewReasonCode reviewReason;
+  final EvidenceSearchStatus searchStatus;
   final String rationale;
   final List<String> limitations;
   final List<EvidenceReference> evidence;
@@ -94,12 +96,8 @@ class VerificationResultDto {
       macroActivityId: _requiredString(json, 'macroActivityId'),
       activityId: _optionalString(json, 'activityId'),
       displayName: _requiredString(json, 'displayName'),
-      evidenceType: EvidenceType.fromApi(
-        _requiredString(json, 'evidenceType'),
-      ),
-      location: EvidenceLocation.fromApi(
-        _requiredString(json, 'location'),
-      ),
+      evidenceType: EvidenceType.fromApi(_requiredString(json, 'evidenceType')),
+      location: EvidenceLocation.fromApi(_requiredString(json, 'location')),
       subjectTicketId: _optionalString(json, 'subjectTicketId'),
       applicability: applicability,
       proposedStatus: VerificationResultStatus.fromApi(
@@ -108,37 +106,45 @@ class VerificationResultDto {
       effectiveStatus: VerificationResultStatus.fromApi(
         _requiredString(json, 'effectiveStatus'),
       ),
+      reviewReason: ReviewReasonCode.fromApi(
+        _optionalString(json, 'reviewReason'),
+      ),
+      searchStatus: EvidenceSearchStatus.fromApi(
+        _optionalString(json, 'searchStatus'),
+      ),
       rationale: _requiredString(json, 'rationale'),
       limitations: _stringList(json['limitations'], fallback: const []),
-      evidence: _list(json['evidence'])
-          .map((item) => EvidenceReferenceDto.fromJson(item).toModel())
-          .toList(),
-      humanDecisions: _list(json['humanDecisions'])
-          .map((item) => HumanDecisionEventDto.fromJson(item).toModel())
-          .toList(),
+      evidence: _list(
+        json['evidence'],
+      ).map((item) => EvidenceReferenceDto.fromJson(item).toModel()).toList(),
+      humanDecisions: _list(
+        json['humanDecisions'],
+      ).map((item) => HumanDecisionEventDto.fromJson(item).toModel()).toList(),
       revision: _int(json['revision']),
     );
   }
 
   VerificationResult toModel() => VerificationResult(
-        id: id,
-        runId: runId,
-        expectationId: expectationId,
-        macroActivityId: macroActivityId,
-        activityId: activityId,
-        displayName: displayName,
-        evidenceType: evidenceType,
-        location: location,
-        subjectTicketId: subjectTicketId,
-        applicability: applicability,
-        proposedStatus: proposedStatus,
-        effectiveStatus: effectiveStatus,
-        rationale: rationale,
-        limitations: limitations,
-        evidence: evidence,
-        humanDecisions: humanDecisions,
-        revision: revision,
-      );
+    id: id,
+    runId: runId,
+    expectationId: expectationId,
+    macroActivityId: macroActivityId,
+    activityId: activityId,
+    displayName: displayName,
+    evidenceType: evidenceType,
+    location: location,
+    subjectTicketId: subjectTicketId,
+    applicability: applicability,
+    proposedStatus: proposedStatus,
+    effectiveStatus: effectiveStatus,
+    reviewReason: reviewReason,
+    searchStatus: searchStatus,
+    rationale: rationale,
+    limitations: limitations,
+    evidence: evidence,
+    humanDecisions: humanDecisions,
+    revision: revision,
+  );
 }
 
 class EvidenceReferenceDto {
@@ -173,14 +179,14 @@ class EvidenceReferenceDto {
   }
 
   EvidenceReference toModel() => EvidenceReference(
-        kind: kind,
-        source: source,
-        externalId: externalId,
-        displayName: displayName,
-        webUrl: webUrl,
-        observedAt: observedAt,
-        ticketId: ticketId,
-      );
+    kind: kind,
+    source: source,
+    externalId: externalId,
+    displayName: displayName,
+    webUrl: webUrl,
+    observedAt: observedAt,
+    ticketId: ticketId,
+  );
 }
 
 class HumanDecisionEventDto {
@@ -218,13 +224,13 @@ class HumanDecisionEventDto {
   }
 
   HumanDecisionEvent toModel() => HumanDecisionEvent(
-        id: id,
-        decisionType: decisionType,
-        applicabilityDecision: applicabilityDecision,
-        finalStatus: finalStatus,
-        rationale: rationale,
-        decidedAt: decidedAt,
-      );
+    id: id,
+    decisionType: decisionType,
+    applicabilityDecision: applicabilityDecision,
+    finalStatus: finalStatus,
+    rationale: rationale,
+    decidedAt: decidedAt,
+  );
 }
 
 String _requiredString(

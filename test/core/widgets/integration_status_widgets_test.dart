@@ -7,7 +7,9 @@ import 'package:proyecto_tema_frontend/core/widgets/integration_status_card.dart
 import 'package:proyecto_tema_frontend/core/widgets/status_chip.dart';
 
 void main() {
-  testWidgets('StatusChip presents a text label and a tone icon', (tester) async {
+  testWidgets('StatusChip presents a text label and a tone icon', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: appTheme,
@@ -43,25 +45,26 @@ void main() {
     expect(find.text('Consulta de lectura correcta.'), findsOneWidget);
   });
 
-  testWidgets('IntegrationStatusCard can show missing information without a date', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: appTheme,
-        home: const Scaffold(
-          body: IntegrationStatusCard(
-            sourceLabel: 'Redmine',
-            statusLabel: 'Sin información',
-            tone: StatusTone.neutral,
+  testWidgets(
+    'IntegrationStatusCard can show missing information without a date',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: appTheme,
+          home: const Scaffold(
+            body: IntegrationStatusCard(
+              sourceLabel: 'Redmine',
+              statusLabel: 'Sin información',
+              tone: StatusTone.neutral,
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('Sin información'), findsOneWidget);
-    expect(find.textContaining('Última comprobación:'), findsNothing);
-  });
+      expect(find.text('Sin información'), findsOneWidget);
+      expect(find.textContaining('Última comprobación:'), findsNothing);
+    },
+  );
 
   testWidgets('AppErrorView uses OutlinedButton for retry', (tester) async {
     var retryCount = 0;
